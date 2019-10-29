@@ -1,0 +1,15 @@
+{
+  "name": "building-review-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "hedgehogCat",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "serve": "node ./index.js"
+  },
+  "dependencies": {
+    "koa": "2.0.0",
+    "koa-router": "7.0.0"
+  }
+}
