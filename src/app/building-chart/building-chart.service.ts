@@ -13,13 +13,14 @@ import {
   DirectionalLightHelper,
   HemisphereLightHelper,
   Raycaster,
-  Vector2, Mesh
+  Vector2, Mesh, BoxGeometry, MeshBasicMaterial
 } from 'three';
 import {
   OrbitControls,
   FBXLoader,
   ColladaLoader
 } from 'three-full';
+import { Interaction } from 'three.interaction';
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -34,15 +35,22 @@ export class BuildingChartService {
 
   mousePos: Vector2;
   raycaster: Raycaster;
+  interaction: Interaction;
 
-  casteredObj: Mesh;
+  casteredObj: Mesh = null;
+  selectedObj:Mesh = null;
 
   objCasteredEvt: EventEmitter<any>;
   objLeaveEvt: EventEmitter<any>;
-  canvasClicked:EventEmitter<any>;
+  canvasClicked: EventEmitter<any>;
+
+  floorKeys:string[];
+  floors:Mesh[];
 
   // returned by requestAnimationFrame
   timer: number;
+  camInitPos = {x:20,y:20,z:20};
+  camInitLookAt = {x:0,y:0,z:0};
 
   private host = '/api';
 
@@ -105,13 +113,20 @@ export class BuildingChartService {
       fov: 30, near: 1, far: 1000
     };
     this.camera = new PerspectiveCamera(config.fov, dom.clientWidth / dom.clientHeight, config.near, config.far);
-    const pos = { x: 20, y: 20, z: 20 };
-    this.camera.position.set(pos.x, pos.y, pos.z);
-    this.camera.lookAt(0, 0, 0);
+    this.resetCam();
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0, 0, 0);
 
     this.initRaycaster(this.renderer);
+    this.interaction = new Interaction(this.renderer, this.scene, this.camera);
+
+    // const cube = new Mesh(
+    //   new BoxGeometry(1, 1, 1),
+    //   new MeshBasicMaterial({ color: 0xffffff }),
+    // ) as any;
+    // this.scene.add(cube);
+    // cube.cursor = 'pointer';
+    // cube.on('click', function(ev) {console.log('cube clicked')});
   }
 
   initLights() {
@@ -163,47 +178,98 @@ export class BuildingChartService {
 
   renderRaycasterObj(raycaster: Raycaster, scene: Scene, camera: PerspectiveCamera, mousePos: Vector2) {
     raycaster.setFromCamera(mousePos, camera);
-    const intersects = raycaster.intersectObjects(scene.children);
+    // const intersects = raycaster.intersectObjects(scene.children);
+    const intersects = raycaster.intersectObjects(this.floors);
     if (intersects.length > 0) {
-      const currObj = intersects[0].object;
-      if ((currObj !== this.casteredObj) && (currObj instanceof Mesh)) {
-        this.casteredObj = currObj;
-        this.objCasteredEvt.emit(currObj);
+      const intersect = intersects.find(inter => inter.object.userData.isFloor);
+      if (intersect) {
+        const floorObj = intersect.object;
+        if (floorObj !== this.casteredObj) {
+          if (this.casteredObj !== null) {
+            this.objLeaveEvt.emit(this.casteredObj);
+          }
+          this.casteredObj = floorObj as Mesh;
+          this.objCasteredEvt.emit(floorObj);
+        }
       }
+
+      // const currObj = intersects[0].object;
+      // // console.log('intersect', intersects);
+      // if ((currObj !== this.casteredObj) && (currObj.type === 'Mesh')) {
+      //   this.casteredObj = currObj as Mesh;
+      //   this.objCasteredEvt.emit(currObj);
+      // }
     } else {
-      this.objLeaveEvt.emit(this.casteredObj);
-      this.casteredObj = null;
+      if (this.casteredObj !== null) {
+        this.objLeaveEvt.emit(this.casteredObj);
+        this.casteredObj = null;
+      }
+
     }
+  }
+
+  focusOnFloor(floor:Mesh) {
+    const floorPos = floor.position;
+    const initPos = this.camInitPos;
+    this.camera.position.set(initPos.x, initPos.y, initPos.z + floorPos.z);
+    this.camera.lookAt(floorPos);
+  }
+
+  resetCam() {
+    const pos = this.camInitPos;
+    this.camera.position.set(pos.x, pos.y, pos.z);
+    const lookAt = this.camInitLookAt;
+    this.camera.lookAt(lookAt.x, lookAt.y,lookAt.z);
   }
 
   private initRaycaster(renderer: WebGLRenderer) {
     this.raycaster = new Raycaster();
-    this.mousePos = new Vector2();
+    this.mousePos = new Vector2(-Infinity, -Infinity);
+
+    let isMouseDown;
+    let isClick = true;
     const dom = renderer.domElement;
+    dom.addEventListener('mousedown', (e) => {
+      isMouseDown = true;
+      isClick = true;
+    });
+    dom.addEventListener('mouseup', (e) => {
+      isMouseDown = false;
+    });
     dom.addEventListener('mousemove', (e) => {
+      console.log('mouse move');
+      
+      if(isMouseDown) {
+        isClick = false;
+      }
       this.updateMousePos(e, dom);
     });
     dom.addEventListener('click', (e) => {
-      // this.updateMousePos(e, dom);
-      this.canvasClicked.emit(e);
+      if(isClick) {
+        this.canvasClicked.emit(e);
+      }
     });
   }
 
   private updateMousePos(e: MouseEvent, dom: HTMLCanvasElement) {
     e.preventDefault();
-    const deltaX = e.clientX - dom.offsetLeft;
-    this.mousePos.setX((deltaX / dom.width) * 2 - 1);
+    const boundRect = dom.getBoundingClientRect();
+    const deltaX = e.clientX - boundRect.left;
+    this.mousePos.setX((deltaX / boundRect.width) * 2 - 1);
 
-    const deltaY = e.clientX - dom.offsetLeft;
-    this.mousePos.setX((deltaY / dom.height) * 2 - 1);
+    const deltaY = e.clientY - boundRect.top;
+    this.mousePos.setY(-(deltaY / boundRect.height) * 2 + 1);
+    // console.log('mousePos', this.mousePos);
   }
 
   private initialize() {
     this.renderer = new WebGLRenderer({ antialias: true });
     this.scene = new Scene();
 
+    this.floorKeys = [];
+    this.floors = [];
     this.objCasteredEvt = new EventEmitter();
     this.objLeaveEvt = new EventEmitter();
-    this.canvasClicked=new EventEmitter();
+    this.canvasClicked = new EventEmitter();
   }
 }

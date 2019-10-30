@@ -23,6 +23,7 @@
     "rxjs": "~6.4.0",
     "three": "^0.109.0",
     "three-full": "^17.1.0",
+    "three.interaction": "^0.2.2",
     "tslib": "^1.10.0",
     "zone.js": "~0.9.1"
   },
