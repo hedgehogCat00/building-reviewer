@@ -1,61 +1,76 @@
 <div #container class="building-chart-container">
   <app-building-chart #chart (floorDiselected)="floorDiselected($event)" (floorSelected)="floorSelected($event)"
-     (getFloorNames)="getFloorNames($event)"></app-building-chart>
-
+    (getFloorNames)="getFloorNames($event)"></app-building-chart>
   <!-- device items -->
-  <div *ngFor="let device of devices" class="icon" ngStyle="getDeviceStyle(device)">
+  <div [@iconState]="getIconState(device)" *ngFor="let device of devices" class="chart-icon" [ngStyle]="getDeviceStyle(device)">
     <div class="image-container">
       <img [src]="device.type.imgUrl" alt="image">
-      <span>{{device.name}}</span>
+      <span class="label">{{device.name}}</span>
     </div>
     <div class="tail"></div>
   </div>
 
   <!-- left side floors panel -->
-  <mat-accortion class="floors-container">
-    <mat-expantion-panel *ngFor="floor of floors;floorIdx as index">
+
+  <mat-accordion class="floors-container">
+    <mat-expansion-panel *ngFor="let floor of floors;index as floorIdx">
       <mat-expansion-panel-header>
         <mat-panel-title>{{floor.name}}</mat-panel-title>
       </mat-expansion-panel-header>
 
       <div *ngFor="let device of floor.devices" class="device-item">
-        <div>
+        <div class="item-container">
           <img [src]="device.type.imgUrl" alt="image">
-          <span>{{device.name}}</span>
+          <span class="label">{{device.name}}</span>
         </div>
-        <button (click)="removeDevice(floorIdx, device.id)">remove</button>
+        <button (click)="removeDevice(floorIdx, device.id)">删除</button>
       </div>
-      <button (click)="raiseModal(floorIdx)">add one</button>
-    </mat-expantion-panel>
-  </mat-accortion>
+
+      <mat-action-row>
+        <button mat-button (click)="raiseModal(floorIdx)">添加设备</button>
+        <button mat-button (click)="selectFloor(floorIdx)">查看楼层</button>
+      </mat-action-row>
+    </mat-expansion-panel>
+  </mat-accordion>
+  <!-- <button mat-button>啦啦啦</button> -->
 
   <div *ngIf="modalShow" #modal class="modal-back">
-      <div class="modal-dialog">
-          <div class="modal-header">
-              <span>添加设备</span>
-              <button (click)="closeModal()">关闭</button>
-          </div>
-          <div class="modal-body">
-            <form #f='ngForm'>
-                <label for="name-field">名称</label>
-                <input id="name-field" type="text" name="name" ngModel>
-
-                <label for="type-field">名称</label>
-                <select id="type-field" name="type" ngModel>
-                    <option *ngFor="let type of deviceTypes" [ngValue]="type.name">{{type.name}}</option>
-                </select>
-
-                <label for="xpos-field">x</label>
-                <input id="xpos-field" type="number" name="xpos" min="0" max="1" ngModel>
-
-                <label for="ypos-field">y</label>
-                <input id="ypos-field" type="number" name="ypos" min="0" max="1" ngModel>
-                <button (click)="createDevice(f)">创建</button>
-            </form>
-          </div>
-          <div class="modal-footer">
-              <!-- <button (click)="createDevice()">创建</!--> -->
-          </div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h2>添加设备</h2>
+        <button mat-button (click)="closeModal()">关闭</button>
       </div>
+      <div class="modal-body">
+        <form #f='ngForm' class="form-field">
+          <!-- <mat-form-field> -->
+          <div class="row-field">
+            <label for="name-field">名称</label>
+            <input id="name-field" type="text" name="name" ngModel>
+          </div>
+
+          <div class="row-field">
+            <label for="type-field">类型</label>
+            <select id="type-field" name="type" ngModel>
+              <option *ngFor="let type of deviceTypes" [value]="type.type">{{type.type}}</option>
+            </select>
+          </div>
+
+          <div class="row-field">
+            <label for="xpos-field">x</label>
+            <input matInput id="xpos-field" type="number" name="xpos" placeholder="0-1" min="0" max="1" ngModel>
+          </div>
+
+          <div class="row-field">
+            <label for="ypos-field">y</label>
+            <input matInput id="ypos-field" type="number" name="ypos" placeholder="0-1" min="0" max="1" ngModel>
+          </div>
+          <button mat-button (click)="createDevice(f);closeModal()">创建</button>
+        </form>
+
+      </div>
+      <div class="modal-footer">
+        <!-- <button (click)="createDevice()">创建</!-->
+      </div>
+    </div>
   </div>
 </div>

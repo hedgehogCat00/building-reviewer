@@ -139,7 +139,7 @@ export class BuildingChartComponent implements OnInit {
         service.scene.add((modelScene));
         service.play();
 
-        service.addDevice(this.floorKeys.length - 1, 0, 0);
+        // service.addDevice(this.floorKeys.length - 1, 0, 0);
       }, err => {
         console.error(err);
 
@@ -177,7 +177,7 @@ export class BuildingChartComponent implements OnInit {
     } else {
       if (service.selectedObj) {
         service.selectedObj.userData.selected = false;
-        this.floorDiselected.emit(service.selectedObj.userData.floorIdx);
+        this.floorDiselected.emit(null);
         service.resetCam();
       }
       service.selectedObj = null;
@@ -190,6 +190,12 @@ export class BuildingChartComponent implements OnInit {
 
   removeDevice(floorIdx: number, id: number) {
     this.compService.removeDevice(floorIdx, id);
+  }
+
+
+  selectFloor(floorIdx: number) {
+    this.floorSelected.emit(floorIdx);
+    this.compService.focusOnFloor(this.floors[floorIdx]);
   }
 
   private onEachFrame() {

@@ -13,7 +13,7 @@ import {
   DirectionalLightHelper,
   HemisphereLightHelper,
   Raycaster,
-  Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap
+  Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap, PlaneGeometry
 } from 'three';
 import {
   OrbitControls,
@@ -193,7 +193,8 @@ export class BuildingChartService {
       this.onEachFrame();
     }
     this.renderer.render(this.scene, this.camera);
-    this.storeDeviceScreenPos();
+
+    this.storeDeviceScreenCoord();
     this.timer = requestAnimationFrame(this.renderScene.bind(this));
   }
 
@@ -320,8 +321,8 @@ export class BuildingChartService {
     const floor = this.floors[idx];
     const parent = floor.parent;
 
-    const geo = new BoxGeometry(5, 5, 5, 1, 1, 1);
-    const mat = new MeshLambertMaterial({ color: 0xff0000 });
+    const geo = new BoxGeometry(0.2, 0.02, 0.2);
+    const mat = new MeshLambertMaterial({ color: 0xdcaa1c });
     const device = new Mesh(geo, mat);
     device.name = `device-${device.uuid}`;
     device.castShadow = true;
@@ -337,6 +338,7 @@ export class BuildingChartService {
     const depth = maxB.y - minB.y;
     device.position.setX(width * (u - .5));
     device.position.setY(depth * (v - .5));
+    device.position.setZ(0.02);
 
     // Save into local
     this.devices[idx][device.id] = device;
@@ -362,17 +364,19 @@ export class BuildingChartService {
     delete this.devices[idx][id];
   }
 
-  storeDeviceScreenPos() {
+
+  storeDeviceScreenCoord() {
     this.devices.forEach(devicesOneFloor => {
       Object.values(devicesOneFloor).forEach((device: Mesh) => {
-        const worldMatEl = device.matrixWorld.elements;
-        const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
+        // const worldMatEl = device.matrixWorld.elements;
+        // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
+        const vec = device.getWorldPosition(device.position.clone());
         vec.project(this.camera);
         const dom = this.renderer.domElement;
         // Restore result
-        device.userData.screenPos = {
+        device.userData.screenCoord = {
           x: Math.round((.5 + vec.x / 2) * dom.width),
-          y: Math.round((.5 + vec.y / 2) * dom.height),
+          y: Math.round((.5 - vec.y / 2) * dom.height),
         };
       });
     });

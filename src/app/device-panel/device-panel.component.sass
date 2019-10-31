@@ -1,4 +1,67 @@
 .building-chart-container
     position: relative
     width: 100%
+
     height: 100%
+
+.floors-container
+    position: fixed
+    background-color: rgba(0, 0, 0, .4)
+    color: white
+    margin-left: 10px
+    margin-top: 10px
+
+.modal-back
+    position: fixed
+    display: flex
+    justify-content: center
+    align-items: center
+    z-index: 9999
+    background-color: rgba(0, 0, 0, .4)
+    top: 0
+    right: 0
+    bottom: 0
+    left: 0
+
+    .modal-dialog
+        padding: 10px
+        display: flex
+        flex-direction: column
+        min-width: 500px
+        min-height: 300px
+        background-color: white
+        border-radius: 4px
+        box-shadow: 0 3px 20px 0px black
+
+    .modal-header
+        display: flex
+        justify-content: space-between
+    .modal-body
+        display: flex
+        flex-direction: column
+        flex-grow: 1
+    .form-field
+        display: flex
+        flex-direction: column
+
+.device-item
+    display: flex
+    .item-container
+        display: flex
+        flex-direction: column
+        align-items: center
+        font-size: 12px
+.chart-icon
+    position: absolute
+    // transition: top .3s ease-out, left .3s ease-out
+    transform: translateY(-100%)
+    .image-container
+        display: flex
+        flex-direction: column
+        align-items: center
+        color: #4fabb9
+    .tail
+        height: 80px
+        margin-top: 10px
+        transform: translateX(-50%)
+        border-right: 2px dashed #e6c62a
