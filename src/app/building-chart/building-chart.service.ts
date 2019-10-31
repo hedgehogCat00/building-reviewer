@@ -13,7 +13,7 @@ import {
   DirectionalLightHelper,
   HemisphereLightHelper,
   Raycaster,
-  Vector2, Mesh, BoxGeometry, MeshBasicMaterial
+  Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap
 } from 'three';
 import {
   OrbitControls,
@@ -21,6 +21,8 @@ import {
   ColladaLoader
 } from 'three-full';
 import { Interaction } from 'three.interaction';
+import { default as _TWEEN } from '@tweenjs/tween.js';
+// const TWEEN = require('@tweenjs/tween.js');
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -38,19 +40,26 @@ export class BuildingChartService {
   interaction: Interaction;
 
   casteredObj: Mesh = null;
-  selectedObj:Mesh = null;
+  selectedObj: Mesh = null;
 
   objCasteredEvt: EventEmitter<any>;
   objLeaveEvt: EventEmitter<any>;
   canvasClicked: EventEmitter<any>;
 
-  floorKeys:string[];
-  floors:Mesh[];
+  floorKeys: string[];
+  floors: Mesh[];
+  devices: any[];
 
   // returned by requestAnimationFrame
   timer: number;
-  camInitPos = {x:20,y:20,z:20};
-  camInitLookAt = {x:0,y:0,z:0};
+  camInitPos = new Vector3(70, 70, 70);
+  camInitLookAt = new Vector3();
+
+  onEachFrame: () => void;
+
+  get TWEEN() {
+    return _TWEEN;
+  }
 
   private host = '/api';
 
@@ -91,6 +100,7 @@ export class BuildingChartService {
     const renderer = this.renderer;
     renderer.setSize(dom.clientWidth, dom.clientHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = PCFSoftShadowMap;
     renderer.domElement.style.display = 'block';
     dom.appendChild(renderer.domElement);
 
@@ -105,7 +115,7 @@ export class BuildingChartService {
 
   initScene() {
     this.scene.background = new Color(0x22a32);
-    this.scene.fog = new Fog(0x191e24, 200, 1000);
+    this.scene.fog = new Fog(0x191e24, 100, 1000);
   }
 
   initCamera(dom: HTMLElement) {
@@ -113,9 +123,12 @@ export class BuildingChartService {
       fov: 30, near: 1, far: 1000
     };
     this.camera = new PerspectiveCamera(config.fov, dom.clientWidth / dom.clientHeight, config.near, config.far);
-    this.resetCam();
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.target.set(0, 0, 0);
+    this.controls.addEventListener('changed', e => {
+
+    });
+    this.resetCam();
+    // this.controls.target.set(0, 0, 0);
 
     this.initRaycaster(this.renderer);
     this.interaction = new Interaction(this.renderer, this.scene, this.camera);
@@ -143,36 +156,44 @@ export class BuildingChartService {
     dirLight.color.setHSL(0.1, 1, .95);
     dirLight.position.set(0, 50, 0);
     dirLight.castShadow = true;
-    dirLight.shadow.camera.top = 50;
-    dirLight.shadow.camera.bottom = -50;
-    dirLight.shadow.camera.left = -50;
-    dirLight.shadow.camera.right = 50;
+    // dirLight.shadow.camera.top = 50;
+    // dirLight.shadow.camera.bottom = -50;
+    // dirLight.shadow.camera.left = -50;
+    // dirLight.shadow.camera.right = 50;
     this.scene.add(dirLight);
 
     const dirLightHelper = new DirectionalLightHelper(dirLight, 10);
     this.scene.add(dirLightHelper);
   }
 
-  initGrid() {
+  initHelpers() {
     this.gridHelper = new GridHelper(2000, 20, 0xffffff, 0xaaaaff);
     const mat = this.gridHelper.material as Material;
     mat.opacity = .2;
     mat.transparent = true;
     this.scene.add(this.gridHelper);
+
+    const axesHelper = new AxesHelper(100);
+    this.scene.add(axesHelper);
   }
 
   play() {
-    this.renderScene();
+    this.renderScene(Date.now());
   }
 
   pause() {
     cancelAnimationFrame(this.timer);
   }
 
-  renderScene() {
-    this.renderer.render(this.scene, this.camera);
+  renderScene(time) {
+    this.TWEEN.update(time);
     this.controls.update();
     this.renderRaycasterObj(this.raycaster, this.scene, this.camera, this.mousePos);
+    if (this.onEachFrame instanceof Function) {
+      this.onEachFrame();
+    }
+    this.renderer.render(this.scene, this.camera);
+    this.storeDeviceScreenPos();
     this.timer = requestAnimationFrame(this.renderScene.bind(this));
   }
 
@@ -208,19 +229,156 @@ export class BuildingChartService {
     }
   }
 
-  focusOnFloor(floor:Mesh) {
-    const floorPos = floor.position;
-    const initPos = this.camInitPos;
-    this.camera.position.set(initPos.x, initPos.y, initPos.z + floorPos.z);
-    this.camera.lookAt(floorPos);
+  focusOnFloor(floor: Mesh) {
+    // Change view
+    const group = floor.parent;
+    const floorPos = group.getWorldPosition(group.userData.oriPos.clone());
+
+    new this.TWEEN.Tween(this.camera.position)
+      .to({ x: 20, y: 10 + floorPos.y, z: 20 }, 1000)
+      .easing(this.TWEEN.Easing.Quadratic.Out)
+      .start();
+
+    new this.TWEEN.Tween(this.controls.target)
+      .to({ x: floorPos.x, y: floorPos.y, z: floorPos.z }, 1000)
+      .easing(this.TWEEN.Easing.Quadratic.Out)
+      .start();
+
+    // Update other floors
+    // Lift the parents of other floors
+    const floorIdx = floor.userData.floorIdx;
+    this.floors.forEach((f, i) => {
+      const parent = f.parent;
+      const parentData = parent.userData;
+
+      if (i <= floorIdx) {
+        if (!parentData.isLifted) { return; }
+        // Reset back to the original position
+        parentData.isLifted = false;
+        const oriPos = parentData.oriPos;
+        new this.TWEEN.Tween(parent.position)
+          .to({ z: oriPos.z }, 1000)
+          .easing(this.TWEEN.Easing.Quadratic.Out)
+          .start();
+      } else {
+        if (parentData.isLifted) { return; }
+        // Lift the parent
+        parentData.isLifted = true;
+        const currPos = parent.position;
+        const gap = 5;
+        new this.TWEEN.Tween(parent.position)
+          .to({ z: currPos.z + gap }, 1000)
+          .easing(this.TWEEN.Easing.Quadratic.Out)
+          .start();
+      }
+    });
   }
 
   resetCam() {
+    // Change view
     const pos = this.camInitPos;
-    this.camera.position.set(pos.x, pos.y, pos.z);
+    new this.TWEEN.Tween(this.camera.position)
+      .to({ x: pos.x, y: pos.y, z: pos.z }, 1000)
+      .easing(this.TWEEN.Easing.Quadratic.Out)
+      .start();
+
     const lookAt = this.camInitLookAt;
-    this.camera.lookAt(lookAt.x, lookAt.y,lookAt.z);
+    new this.TWEEN.Tween(this.controls.target)
+      .to({ x: lookAt.x, y: lookAt.y, z: lookAt.z }, 1000)
+      .easing(this.TWEEN.Easing.Quadratic.Out)
+      .start();
+
+    // Update other floors
+    // Unlift all the floors
+    this.floors.forEach((f, i) => {
+      const parent = f.parent;
+      const parentData = parent.userData;
+      if (!parentData.isLifted) { return; }
+
+      // Reset back to the original position
+      parentData.isLifted = false;
+      const oriPos = parentData.oriPos;
+      new this.TWEEN.Tween(parent.position)
+        .to({ z: oriPos.z }, 1000)
+        .easing(this.TWEEN.Easing.Quadratic.Out)
+        .start();
+    });
   }
+
+  /**
+   *
+   * @param floorIdx
+   * @param u range from 0-1
+   * @param v range from 0-1
+   */
+  addDevice(floorIdx: number, u: number, v: number): Mesh {
+    console.log('add device');
+    u = Math.max(Math.min(u, 1), 0);
+    v = Math.max(Math.min(v, 1), 0);
+
+    const idx = floorIdx % this.floorKeys.length;
+    const floor = this.floors[idx];
+    const parent = floor.parent;
+
+    const geo = new BoxGeometry(5, 5, 5, 1, 1, 1);
+    const mat = new MeshLambertMaterial({ color: 0xff0000 });
+    const device = new Mesh(geo, mat);
+    device.name = `device-${device.uuid}`;
+    device.castShadow = true;
+    device.receiveShadow = true;
+
+    floor.geometry.computeBoundingBox();
+    const boundery = floor.geometry.boundingBox;
+    const minB = boundery.min.multiply(floor.scale);
+    const maxB = boundery.max.multiply(floor.scale);
+
+    // console.log('boundery', boundery);
+    const width = maxB.x - minB.x;
+    const depth = maxB.y - minB.y;
+    device.position.setX(width * (u - .5));
+    device.position.setY(depth * (v - .5));
+
+    // Save into local
+    this.devices[idx][device.id] = device;
+
+    // this.scene.add(device);
+
+    // console.log(this.scene);
+
+    parent.add(device);
+
+    return device;
+  }
+
+  removeDevice(floorIdx: number, id: number) {
+    console.log('remove device');
+    const idx = floorIdx % this.floorKeys.length;
+    const floor = this.floors[idx];
+    // const device = this.devices[idx][id];
+    const device = floor.parent.getObjectById(id);
+    // this.scene.remove(device);
+    floor.parent.remove(device);
+
+    delete this.devices[idx][id];
+  }
+
+  storeDeviceScreenPos() {
+    this.devices.forEach(devicesOneFloor => {
+      Object.values(devicesOneFloor).forEach((device: Mesh) => {
+        const worldMatEl = device.matrixWorld.elements;
+        const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
+        vec.project(this.camera);
+        const dom = this.renderer.domElement;
+        // Restore result
+        device.userData.screenPos = {
+          x: Math.round((.5 + vec.x / 2) * dom.width),
+          y: Math.round((.5 + vec.y / 2) * dom.height),
+        };
+      });
+    });
+  }
+
+
 
   private initRaycaster(renderer: WebGLRenderer) {
     this.raycaster = new Raycaster();
@@ -237,15 +395,15 @@ export class BuildingChartService {
       isMouseDown = false;
     });
     dom.addEventListener('mousemove', (e) => {
-      console.log('mouse move');
-      
-      if(isMouseDown) {
+      // console.log('mouse move');
+
+      if (isMouseDown) {
         isClick = false;
       }
       this.updateMousePos(e, dom);
     });
     dom.addEventListener('click', (e) => {
-      if(isClick) {
+      if (isClick) {
         this.canvasClicked.emit(e);
       }
     });

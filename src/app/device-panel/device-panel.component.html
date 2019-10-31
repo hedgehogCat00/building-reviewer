@@ -1,0 +1,61 @@
+<div #container class="building-chart-container">
+  <app-building-chart #chart (floorDiselected)="floorDiselected($event)" (floorSelected)="floorSelected($event)"
+     (getFloorNames)="getFloorNames($event)"></app-building-chart>
+
+  <!-- device items -->
+  <div *ngFor="let device of devices" class="icon" ngStyle="getDeviceStyle(device)">
+    <div class="image-container">
+      <img [src]="device.type.imgUrl" alt="image">
+      <span>{{device.name}}</span>
+    </div>
+    <div class="tail"></div>
+  </div>
+
+  <!-- left side floors panel -->
+  <mat-accortion class="floors-container">
+    <mat-expantion-panel *ngFor="floor of floors;floorIdx as index">
+      <mat-expansion-panel-header>
+        <mat-panel-title>{{floor.name}}</mat-panel-title>
+      </mat-expansion-panel-header>
+
+      <div *ngFor="let device of floor.devices" class="device-item">
+        <div>
+          <img [src]="device.type.imgUrl" alt="image">
+          <span>{{device.name}}</span>
+        </div>
+        <button (click)="removeDevice(floorIdx, device.id)">remove</button>
+      </div>
+      <button (click)="raiseModal(floorIdx)">add one</button>
+    </mat-expantion-panel>
+  </mat-accortion>
+
+  <div *ngIf="modalShow" #modal class="modal-back">
+      <div class="modal-dialog">
+          <div class="modal-header">
+              <span>添加设备</span>
+              <button (click)="closeModal()">关闭</button>
+          </div>
+          <div class="modal-body">
+            <form #f='ngForm'>
+                <label for="name-field">名称</label>
+                <input id="name-field" type="text" name="name" ngModel>
+
+                <label for="type-field">名称</label>
+                <select id="type-field" name="type" ngModel>
+                    <option *ngFor="let type of deviceTypes" [ngValue]="type.name">{{type.name}}</option>
+                </select>
+
+                <label for="xpos-field">x</label>
+                <input id="xpos-field" type="number" name="xpos" min="0" max="1" ngModel>
+
+                <label for="ypos-field">y</label>
+                <input id="ypos-field" type="number" name="ypos" min="0" max="1" ngModel>
+                <button (click)="createDevice(f)">创建</button>
+            </form>
+          </div>
+          <div class="modal-footer">
+              <!-- <button (click)="createDevice()">创建</!--> -->
+          </div>
+      </div>
+  </div>
+</div>

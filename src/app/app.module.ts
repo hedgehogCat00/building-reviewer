@@ -3,18 +3,16 @@ import { NgModule } from '@angular/core';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
-import { BuildingChartComponent } from './building-chart/building-chart.component';
-import { BuildingChartModule } from './building-chart/building-chart.module';
+import { DevicePanelModule } from './device-panel/device-panel.module';
 
 @NgModule({
   declarations: [
-    AppComponent,
-    BuildingChartComponent
+    AppComponent
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
-    BuildingChartModule
+    DevicePanelModule
   ],
   providers: [],
   bootstrap: [AppComponent]
