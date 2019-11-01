@@ -31,13 +31,32 @@ router.get('/model/:fileName', async (ctx, next) => {
 
     //     }
     // });
-    ctx.response.set('accept-ranges', 'bytes');
-    ctx.body = fs.createReadStream(path, 'binary')
-        .on('error', ctx.onerror)
-        .pipe(stream.PassThrough());
+    if(isImage(fileName)) {
+        const subFix = getSubfix(fileName).toLowerCase();
+        ctx.response.set('Content-Type', `image/${subFix}`);
+        ctx.body = fs.createReadStream(path)
+            .on('error', ctx.onerror)
+            .pipe(stream.PassThrough());
+    } else {
+        ctx.response.set('accept-ranges', 'bytes');
+        ctx.body = fs.createReadStream(path, 'binary')
+            .on('error', ctx.onerror)
+            .pipe(stream.PassThrough());
+    }
+    
 });
 
 app.use(router.routes());
 
 app.listen(3000);
 console.log('server start...');
+
+function isImage(fileName) {
+    const subfix = getSubfix(fileName).toLowerCase();
+    const imgSubfixes = ['jpeg', 'jpg', 'png', 'tga'];
+    return imgSubfixes.includes(subfix);
+}
+
+function getSubfix(fileName) {
+    return fileName.replace(/.+?\.([^\.]+$)/g, '$1');
+}

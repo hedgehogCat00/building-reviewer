@@ -52,7 +52,7 @@ export class BuildingChartService {
 
   // returned by requestAnimationFrame
   timer: number;
-  camInitPos = new Vector3(70, 70, 70);
+  camInitPos = new Vector3(60, 70, 60);
   camInitLookAt = new Vector3();
 
   onEachFrame: () => void;
@@ -87,6 +87,7 @@ export class BuildingChartService {
     // const loader = new FBXLoader();
     // load dae format model
     const loader = new ColladaLoader();
+    // const loader = new FBXLoader();
     return new Observable(subs => {
       loader.load(`${this.host}/model/${fileName}`, model => {
         subs.next(model);
@@ -115,7 +116,7 @@ export class BuildingChartService {
 
   initScene() {
     this.scene.background = new Color(0x22a32);
-    this.scene.fog = new Fog(0x191e24, 100, 1000);
+    this.scene.fog = new Fog(0x191e24, 40, 1000);
   }
 
   initCamera(dom: HTMLElement) {
@@ -167,7 +168,7 @@ export class BuildingChartService {
   }
 
   initHelpers() {
-    this.gridHelper = new GridHelper(2000, 20, 0xffffff, 0xaaaaff);
+    this.gridHelper = new GridHelper(2000, 200, 0xffffff, 0xaaaaff);
     const mat = this.gridHelper.material as Material;
     mat.opacity = .2;
     mat.transparent = true;
@@ -194,7 +195,7 @@ export class BuildingChartService {
     }
     this.renderer.render(this.scene, this.camera);
 
-    this.storeDeviceScreenCoord();
+    // this.storeDeviceScreenCoord();
     this.timer = requestAnimationFrame(this.renderScene.bind(this));
   }
 
@@ -236,7 +237,7 @@ export class BuildingChartService {
     const floorPos = group.getWorldPosition(group.userData.oriPos.clone());
 
     new this.TWEEN.Tween(this.camera.position)
-      .to({ x: 20, y: 10 + floorPos.y, z: 20 }, 1000)
+      .to({ x: 20, y: 15 + floorPos.y, z: 20 }, 1000)
       .easing(this.TWEEN.Easing.Quadratic.Out)
       .start();
 
@@ -266,7 +267,7 @@ export class BuildingChartService {
         // Lift the parent
         parentData.isLifted = true;
         const currPos = parent.position;
-        const gap = 5;
+        const gap = 8;
         new this.TWEEN.Tween(parent.position)
           .to({ z: currPos.z + gap }, 1000)
           .easing(this.TWEEN.Easing.Quadratic.Out)
@@ -347,6 +348,8 @@ export class BuildingChartService {
 
     // console.log(this.scene);
 
+    device.onBeforeRender = this.storeDeviceScreenCoord.bind(this, device);
+
     parent.add(device);
 
     return device;
@@ -365,21 +368,35 @@ export class BuildingChartService {
   }
 
 
-  storeDeviceScreenCoord() {
-    this.devices.forEach(devicesOneFloor => {
-      Object.values(devicesOneFloor).forEach((device: Mesh) => {
-        // const worldMatEl = device.matrixWorld.elements;
-        // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
-        const vec = device.getWorldPosition(device.position.clone());
-        vec.project(this.camera);
-        const dom = this.renderer.domElement;
-        // Restore result
-        device.userData.screenCoord = {
-          x: Math.round((.5 + vec.x / 2) * dom.width),
-          y: Math.round((.5 - vec.y / 2) * dom.height),
-        };
-      });
-    });
+  // storeDeviceScreenCoord() {
+  //   this.devices.forEach(devicesOneFloor => {
+  //     Object.values(devicesOneFloor).forEach((device: Mesh) => {
+  //       // const worldMatEl = device.matrixWorld.elements;
+  //       // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
+  //       const vec = device.getWorldPosition(device.position.clone());
+  //       vec.project(this.camera);
+  //       const dom = this.renderer.domElement;
+  //       // Restore result
+  //       device.userData.screenCoord = {
+  //         x: Math.round((.5 + vec.x / 2) * dom.width),
+  //         y: Math.round((.5 - vec.y / 2) * dom.height),
+  //       };
+  //     });
+  //   });
+  // }
+
+
+  storeDeviceScreenCoord(device: Mesh) {
+    // const worldMatEl = device.matrixWorld.elements;
+    // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
+    const vec = device.getWorldPosition(device.position.clone());
+    vec.project(this.camera);
+    const dom = this.renderer.domElement;
+    // Restore result
+    device.userData.screenCoord = {
+      x: Math.round((.5 + vec.x / 2) * dom.width),
+      y: Math.round((.5 - vec.y / 2) * dom.height),
+    };
   }
 
 

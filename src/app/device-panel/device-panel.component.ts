@@ -108,14 +108,14 @@ export class DevicePanelComponent implements OnInit {
   ngOnInit() {
   }
 
-  floorDiselected(floorIdx: number) {
-    if(floorIdx === null) {
-      this.onViewFloorIdx = null;
-    }
-   }
+  floorDiselected(floorIdx: number) {}
 
-  floorSelected(floorIdx: number) { 
+  floorSelected(floorIdx: number) {
     this.onViewFloorIdx = floorIdx;
+  }
+
+  nothingSelected() {
+    this.onViewFloorIdx = null;
   }
 
   selectFloor(floorIdx: number) {
