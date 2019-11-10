@@ -1,7 +1,14 @@
-import { Component, OnInit, ViewChild, ElementRef, EventEmitter, Output } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, EventEmitter, Output, Input } from '@angular/core';
 import { BuildingChartService } from './building-chart.service';
 import { zip as RxZip } from 'rxjs';
-import { Object3D, Mesh, Material, Group, Vector3, Color, DoubleSide, WebGLRenderer, Scene, PerspectiveCamera, MeshPhongMaterial, MeshBasicMaterial } from 'three';
+import {
+  Object3D,
+  Mesh,
+  Group,
+  WebGLRenderer
+} from 'three';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 
 @Component({
   selector: 'app-building-chart',
@@ -20,23 +27,35 @@ export class BuildingChartComponent implements OnInit {
     return this.compService.floors;
   }
   get TWEEN() { return this.compService.TWEEN; }
-  @ViewChild('canvasContainer', { static: true }) canvasContainer: ElementRef;
+  get renderer(): WebGLRenderer { return this.compService.renderer; }
+  get bloomComposer(): EffectComposer { return this.compService.bloomComposer; }
+  get bloomPass(): UnrealBloomPass {return this.compService.bloomPass;}
+
+  @ViewChild('glCanvas', { static: true }) glCanvas: ElementRef;
 
   @Output() devicesUpdated: EventEmitter<any[]>;
   @Output() floorSelected: EventEmitter<number>;
   @Output() floorDiselected: EventEmitter<number>;
   @Output() nothingSelected: EventEmitter<void>;
   @Output() getFloorNames: EventEmitter<string[]>;
+  @Output() modelOnReady: EventEmitter<Mesh[]>;
+  @Output() objOnHovered: EventEmitter<Object3D>;
+  @Output() objOnLeaved: EventEmitter<Object3D>;
+  @Output() beforeRender: EventEmitter<void>;
 
   constructor(
     private compService: BuildingChartService
   ) {
-    compService.onEachFrame = this.onEachFrame.bind(this);
+    compService.beforeRender = this.onBeforeRender.bind(this);
     this.devicesUpdated = new EventEmitter();
     this.floorSelected = new EventEmitter();
     this.floorDiselected = new EventEmitter();
     this.nothingSelected = new EventEmitter();
     this.getFloorNames = new EventEmitter();
+    this.modelOnReady = new EventEmitter();
+    this.objOnHovered = new EventEmitter();
+    this.objOnLeaved = new EventEmitter();
+    this.beforeRender = new EventEmitter();
 
     this.floorSelected.subscribe(this.onFloorSelected.bind(this));
     this.floorDiselected.subscribe(this.onFloorDiselected.bind(this));
@@ -66,23 +85,12 @@ export class BuildingChartComponent implements OnInit {
 
   init() {
     const service = this.compService;
-    const el = this.canvasContainer.nativeElement;
+    const el = this.glCanvas.nativeElement;
     service.initRenderer(el);
     service.initCamera(el);
     service.initScene();
     service.initLights();
     service.initHelpers();
-
-    // setInterval(() => {
-    //   const id = service.addDevice(this.floorKeys.length - 1, 1, 1);
-    //   setTimeout(() => {
-    //     service.removeDevice(this.floorKeys.length - 1, id);
-    //   }, 1000);
-    // }, 2000);
-
-    // service.addDevice(this.floorKeys.length - 1, 0, 0);
-    // service.play();
-
 
     service.loadModel$('building2-1.dae')
       .subscribe((model: any) => {
@@ -91,27 +99,14 @@ export class BuildingChartComponent implements OnInit {
 
         // modelScene.traverse(child => console.log('child', child));
         modelScene.traverse((child: any) => {
-          child.castShadow = true;
-          child.receiveShadow = true;
-
           if (child.type === 'Mesh') {
             // child.castShadow = true;
             // child.receiveShadow = true;
             const name = child.name;
             if (this.floorKeys.includes(name)) {
-              child.material.transparent = true;
-              // // child.material.alphaTest = 0.5;
-              // child.material.emissive = new Color(1, 1, 1);
-              // child.material.emissiveIntensity = 1;
-              // child.material.emissiveMap = child.material.map;
-
-              // Create unique material for each floor obj
-              child.material = child.material.clone();
-
               // child.onBeforeRender = this.onFloorBeforeRender.bind(this, child);
               child.userData.isFloor = true;
               child.userData.floorIdx = this.floorKeys.findIndex((key) => key === name);
-              child.userData.oriColor = child.material.color.clone();
               this.floors.push(child);
             }
           }
@@ -143,9 +138,6 @@ export class BuildingChartComponent implements OnInit {
 
           group.add(floor);
           floor.parent = group;
-
-          this.addBackPanel(group, floor);
-
           // floorGroups.push(group);
 
           modelScene.remove(floor);
@@ -155,8 +147,7 @@ export class BuildingChartComponent implements OnInit {
         console.log('get model', model);
         service.scene.add((modelScene));
         service.play();
-
-        // service.addDevice(this.floorKeys.length - 1, 0, 0);
+        this.modelOnReady.emit(this.floors);
       }, err => {
         console.error(err);
 
@@ -166,19 +157,15 @@ export class BuildingChartComponent implements OnInit {
   }
 
   handleObjCastered(obj) {
-    // console.log('castered', obj);
-    const data = obj.userData;
-    if (!data.isSelected) {
-      obj.material.color = new Color(.5, .5, 1);
-    }
     obj.userData.hovered = true;
+    this.objOnHovered.emit(obj);
   }
 
   handleObjLeaved(obj) {
     // console.log('leaved', obj);
     const data = obj.userData;
-    obj.material.color = data.oriColor.clone();
     data.hovered = false;
+    this.objOnLeaved.emit(obj);
   }
 
   handleCanvasClicked(e: MouseEvent) {
@@ -226,84 +213,17 @@ export class BuildingChartComponent implements OnInit {
   onFloorSelected(floorIdx: number) {
     const floor = this.floors[floorIdx] as any;
     floor.userData.isSelected = true;
-
-    // Fade floor
-    const fmat = floor.material;
-    // Set opacity to 0.6
-    const fopacity = fmat.opacity;
-    const fvalObj = { val: fopacity };
-    new this.TWEEN.Tween(fvalObj)
-      .to({ val: 0.6 })
-      .easing(this.TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { fmat.opacity = fvalObj.val; })
-      .start();
-
-    // Show backpanel
-    const backPanel = floor.parent.getObjectByName('back-panel');
-    const mat = backPanel.material;
-    // Set opacity to 0.8
-    const opacity = mat.opacity;
-    const valObj = { val: opacity };
-    new this.TWEEN.Tween(valObj)
-      .to({ val: 0.8 })
-      .easing(this.TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { mat.opacity = valObj.val; })
-      .start();
   }
 
   onFloorDiselected(floorIdx: number) {
     const floor = this.floors[floorIdx] as any;
     const data = floor.userData;
     data.isSelected = false;
-
-    // Unfade floor
-    const fmat = floor.material;
-    // Set opacity to 1
-    const fopacity = fmat.opacity;
-    const fvalObj = { val: fopacity };
-    new this.TWEEN.Tween(fvalObj)
-      .to({ val: 1 })
-      .easing(this.TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { fmat.opacity = fvalObj.val; })
-      .start();
-
-    // Hide backpanel
-    const backPanel = floor.parent.getObjectByName('back-panel');
-    const mat = backPanel.material;
-    const opacity = mat.opacity;
-    const valObj = { val: opacity };
-    // Set opacity to 0
-    new this.TWEEN.Tween(valObj)
-      .to({ val: 0 })
-      .easing(this.TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { mat.opacity = valObj.val; })
-      .start();
   }
 
-  // As background of floor object
-  addBackPanel(group: Group, floor: Mesh) {
-    const back = floor.clone();
-    back.material = new MeshBasicMaterial({color: 0x191e24});
-    back.userData.oriColor = new Color(0x191e24);
-    // A bit offset by floor
-    back.position.setZ(back.position.z - .001);
-    back.name = 'back-panel';
-    back.material.transparent = true;
-    back.material.opacity = 0;
-    group.add(back);
-  }
-
-  // onFloorBeforeRender(floor: any, renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {}
-
-  private onEachFrame() {
+  private onBeforeRender() {
+    this.beforeRender.emit();
     // this.emitDeviceScreenPos();
   }
-
-  // private emitDeviceScreenPos() {
-  //   this.devicesUpdated.emit(this.compService.devices);
-  //   const info = this.compService.devices.map(devicesOneFloor => {
-
-  //   });
-  // }
 
 }

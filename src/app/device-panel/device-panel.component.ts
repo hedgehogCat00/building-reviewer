@@ -1,8 +1,10 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { BuildingChartComponent } from '../building-chart/building-chart.component';
-import { Mesh } from 'three';
+import { Mesh, MeshBasicMaterial, Group, Color, Object3D, BoxGeometry, Scene } from 'three';
 import { FormControl } from '@angular/forms';
 import { state, trigger, style, transition, animate, animation } from '@angular/animations';
+import { DevicePanelService } from './device-panel.service';
+import { SCENE } from '../building-chart/entity';
 
 interface Device {
   type: DeviceType;
@@ -38,17 +40,17 @@ interface DeviceType {
         display: 'none'
       })),
       transition('show => hide', animation([
-        style({opacity: 1}),
-        animate('.3s ease-out', style({opacity: 0}))
+        style({ opacity: 1 }),
+        animate('.3s ease-out', style({ opacity: 0 }))
       ])),
       transition('hide => show', animation([
-        style({opacity: 0, display: 'block'}),
-        animate('.3s ease-out', style({opacity: 1}))
+        style({ opacity: 0, display: 'block' }),
+        animate('.3s ease-out', style({ opacity: 1 }))
       ]))
     ])
   ]
 })
-export class DevicePanelComponent implements OnInit {
+export class DevicePanelComponent implements OnInit, AfterViewInit {
 
   floors: Floor[];
 
@@ -75,7 +77,10 @@ export class DevicePanelComponent implements OnInit {
       return [].concat(...this.floors.map(f => f.devices));
     }
   }
-  constructor() {
+
+  constructor(
+    private compService: DevicePanelService
+  ) {
     this.floors = [];
     this.deviceTypes = [
       {
@@ -105,17 +110,134 @@ export class DevicePanelComponent implements OnInit {
     ];
   }
 
-  ngOnInit() {
+  ngOnInit() { }
+
+  ngAfterViewInit() {
+    
   }
 
-  floorDiselected(floorIdx: number) {}
+  modelOnReady(floors: Mesh[]) {
+    const renderer = this.chartComp.renderer;
+    const bloomPass = this.chartComp.bloomPass;
+    this.compService.genGUI(renderer, bloomPass);
+
+    floors.forEach(floor => {
+      (floor as any).cursor = 'pointer';
+      (floor as any).on('mouseover', e => {
+        console.log('mouse over');
+      });
+
+      floor.castShadow = true;
+      floor.receiveShadow = true;
+      floor.layers.enable(SCENE.BLOOM_SCENE);
+      // child.material.emissive = new Color(1, 1, 1);
+      // child.material.emissiveIntensity = 1;
+      // child.material.emissiveMap = child.material.map;
+
+      // Create unique material for each floor obj
+      floor.material = (floor.material as MeshBasicMaterial).clone();
+      const floorMat = floor.material as MeshBasicMaterial;
+      // floorMat.emissive = new Color(0xffffff);
+      // floorMat.emissiveIntensity = 0.2;
+      floorMat.color = new Color(0xa0dadd);
+      floor.userData.oriColor = floorMat.color.clone();
+      floorMat.transparent = true;
+
+      this.addBackPanel(floor.parent as Group, floor);
+
+      const boxGeo = new BoxGeometry(2, 2, 2);
+      const mat = new MeshBasicMaterial({color: 0xa0dadd});
+      const box = new Mesh(boxGeo, mat);
+      box.layers.enable(SCENE.BLOOM_SCENE);
+      (box.material as any).depthWrite = false;
+      floor.parent.add(box);
+    });
+  }
+
+  onObjHovered(obj: Object3D) {
+    // console.log('castered', obj);
+    const data = obj.userData;
+    if (data.isFloor && !data.isSelected) {
+      const mat = (obj as Mesh).material as MeshBasicMaterial;
+      mat.color = new Color(.5, .5, 1);
+      obj.layers.set(SCENE.BLOOM_SCENE);
+    }
+  }
+
+  onObjLeaved(obj: Object3D) {
+    // console.log('leaved', obj);
+    const data = obj.userData;
+    if (data.isFloor) {
+      obj.layers.set(SCENE.ENTIRE_SCENE);
+      const mat = (obj as Mesh).material as MeshBasicMaterial;
+      mat.color = data.oriColor.clone();
+    }
+  }
+
+  floorDiselected(floorIdx: number) {
+    this.onViewFloorIdx = null;
+
+    const TWEEN = this.chartComp.TWEEN;
+    const floorMesh = this.chartComp.floors[floorIdx];
+    // Unfade floor
+    const fmat = floorMesh.material as MeshBasicMaterial;
+    // Set opacity to 1
+    const fopacity = fmat.opacity;
+    const fvalObj = { val: fopacity };
+    new TWEEN.Tween(fvalObj)
+      .to({ val: 1 })
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => { fmat.opacity = fvalObj.val; })
+      .start();
+
+    // Hide backpanel
+    const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
+    const mat = backPanel.material as MeshBasicMaterial;
+    const opacity = mat.opacity;
+    const valObj = { val: opacity };
+    // Set opacity to 0
+    new TWEEN.Tween(valObj)
+      .to({ val: 0 })
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => { mat.opacity = valObj.val; })
+      .start();
+  }
 
   floorSelected(floorIdx: number) {
     this.onViewFloorIdx = floorIdx;
+
+    const TWEEN = this.chartComp.TWEEN;
+    const floorMesh = this.chartComp.floors[floorIdx];
+    // Fade floor
+    const fmat = floorMesh.material as MeshBasicMaterial;
+    // Set opacity to 0.6
+    const fopacity = fmat.opacity;
+    const fvalObj = { val: fopacity };
+    new TWEEN.Tween(fvalObj)
+      .to({ val: 0.6 })
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => { fmat.opacity = fvalObj.val; })
+      .start();
+
+    // Show backpanel
+    const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
+    const mat = backPanel.material as MeshBasicMaterial;
+    // Set opacity to 0.8
+    const opacity = mat.opacity;
+    const valObj = { val: opacity };
+    new TWEEN.Tween(valObj)
+      .to({ val: 0.8 })
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onUpdate(() => { mat.opacity = valObj.val; })
+      .start();
   }
 
   nothingSelected() {
     this.onViewFloorIdx = null;
+  }
+
+  beforeRender() {
+
   }
 
   selectFloor(floorIdx: number) {
@@ -175,8 +297,23 @@ export class DevicePanelComponent implements OnInit {
     }
   }
 
-  getIconState(device:Device):'show'|'hide' {
+  getIconState(device: Device): 'show' | 'hide' {
     return device.floorIdx === this.onViewFloorIdx ? 'show' : 'hide';
   }
+
+
+  // As background of floor object
+  private addBackPanel(group: Group, floor: Mesh) {
+    const back = floor.clone();
+    back.material = new MeshBasicMaterial({ color: 0x191e24 });
+    back.userData.oriColor = new Color(0x191e24);
+    // A bit offset by floor
+    back.position.setZ(back.position.z - .001);
+    back.name = 'back-panel';
+    back.material.transparent = true;
+    back.material.opacity = 0;
+    group.add(back);
+  }
+
 
 }

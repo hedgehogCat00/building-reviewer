@@ -7,23 +7,30 @@ import {
   GridHelper,
   Material,
   AmbientLight,
+  Layers,
   HemisphereLight,
   Fog,
   DirectionalLight,
   DirectionalLightHelper,
   HemisphereLightHelper,
   Raycaster,
-  Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap, PlaneGeometry
+  Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap, PlaneGeometry,
+  ReinhardToneMapping,
+  ShaderMaterial
 } from 'three';
-import {
-  OrbitControls,
-  FBXLoader,
-  ColladaLoader
-} from 'three-full';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+
 import { Interaction } from 'three.interaction';
 import { default as _TWEEN } from '@tweenjs/tween.js';
 // const TWEEN = require('@tweenjs/tween.js');
 import { Observable } from 'rxjs';
+import { SCENE, vshader, fshader } from './entity';
+
 
 @Injectable({
   providedIn: 'root'
@@ -34,6 +41,19 @@ export class BuildingChartService {
   camera: PerspectiveCamera;
   controls: OrbitControls;
   gridHelper: GridHelper;
+
+  bloomLayer: Layers;
+  darkMaterial: MeshBasicMaterial;
+  // tempory materials cache
+  materials: Map<string, any>;
+
+  // passes
+  bloomPass: UnrealBloomPass;
+  renderPass: RenderPass;
+  finalPass: ShaderPass;
+
+  bloomComposer: EffectComposer;
+  finalComposer: EffectComposer;
 
   mousePos: Vector2;
   raycaster: Raycaster;
@@ -55,7 +75,7 @@ export class BuildingChartService {
   camInitPos = new Vector3(60, 70, 60);
   camInitLookAt = new Vector3();
 
-  onEachFrame: () => void;
+  beforeRender: () => void;
 
   get TWEEN() {
     return _TWEEN;
@@ -97,45 +117,59 @@ export class BuildingChartService {
     });
   }
 
-  initRenderer(dom: HTMLElement) {
+  initRenderer(canvas: HTMLCanvasElement) {
+    this.renderer = new WebGLRenderer({ antialias: true, canvas: canvas });
     const renderer = this.renderer;
-    renderer.setSize(dom.clientWidth, dom.clientHeight);
+
+    const wWidth = window.innerWidth;
+    const wHeight = window.innerHeight;
+
+    // renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.setSize(wWidth, wHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
+    renderer.toneMapping = ReinhardToneMapping;
     renderer.domElement.style.display = 'block';
-    dom.appendChild(renderer.domElement);
 
-    dom.onresize = () => {
-      renderer.setSize(dom.clientWidth, dom.clientHeight);
+    window.onresize = () => {
+      renderer.setSize(wWidth, wHeight);
       if (this.camera) {
-        this.camera.aspect = dom.clientWidth / dom.clientHeight;
+        this.camera.aspect = wWidth / wHeight;
         this.camera.updateProjectionMatrix();
+      }
+      if (this.bloomComposer) {
+        this.bloomComposer.setSize(wWidth, wHeight);
+      }
+      if (this.finalComposer) {
+        this.finalComposer.setSize(wWidth, wHeight);
       }
     };
   }
 
   initScene() {
-    this.scene.background = new Color(0x22a32);
+    this.scene.background = new Color(0x191e24);
     this.scene.fog = new Fog(0x191e24, 40, 1000);
   }
 
-  initCamera(dom: HTMLElement) {
+  initCamera(canvas: HTMLCanvasElement) {
     const config = {
       fov: 30, near: 1, far: 1000
     };
-    this.camera = new PerspectiveCamera(config.fov, dom.clientWidth / dom.clientHeight, config.near, config.far);
+    this.camera = new PerspectiveCamera(config.fov, window.innerWidth / window.innerHeight, config.near, config.far);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.addEventListener('changed', e => {
-
-    });
+    this.controls.addEventListener('changed', e => { });
     this.resetCam();
     // this.controls.target.set(0, 0, 0);
 
     this.initRaycaster(this.renderer);
+
+    this.renderPass = new RenderPass(this.scene, this.camera);
+    this.initBloomComposer();
+    this.initFinalComposer();
     this.interaction = new Interaction(this.renderer, this.scene, this.camera);
 
     // const cube = new Mesh(
-    //   new BoxGeometry(1, 1, 1),
+    //   new BoxGeometry(10, 10, 10),
     //   new MeshBasicMaterial({ color: 0xffffff }),
     // ) as any;
     // this.scene.add(cube);
@@ -144,27 +178,26 @@ export class BuildingChartService {
   }
 
   initLights() {
-    const hemiLight = new HemisphereLight(0xffffff, 0xffffff, .6);
-    hemiLight.color.setHSL(.6, 1, .6);
-    hemiLight.groundColor.setHSL(.095, 1, .75);
-    hemiLight.position.set(0, 50, 0);
-    this.scene.add(hemiLight);
+    // const hemiLight = new HemisphereLight(0xffffff, 0xffffff, .6);
+    // hemiLight.color.setHSL(.6, 1, .6);
+    // hemiLight.groundColor.setHSL(.095, 1, .75);
+    // hemiLight.position.set(0, 50, 0);
+    // this.scene.add(hemiLight);
 
-    const hemiLightHellper = new HemisphereLightHelper(hemiLight, 10);
-    this.scene.add(hemiLightHellper);
+    // const hemiLightHellper = new HemisphereLightHelper(hemiLight, 10);
+    // this.scene.add(hemiLightHellper);
 
-    const dirLight = new DirectionalLight(0xffffff, 1);
-    dirLight.color.setHSL(0.1, 1, .95);
-    dirLight.position.set(0, 50, 0);
-    dirLight.castShadow = true;
-    // dirLight.shadow.camera.top = 50;
-    // dirLight.shadow.camera.bottom = -50;
-    // dirLight.shadow.camera.left = -50;
-    // dirLight.shadow.camera.right = 50;
-    this.scene.add(dirLight);
+    // const dirLight = new DirectionalLight(0xffffff, 1);
+    // dirLight.color.setHSL(0.1, 1, .95);
+    // dirLight.position.set(0, 50, 0);
+    // dirLight.castShadow = true;
+    // this.scene.add(dirLight);
 
-    const dirLightHelper = new DirectionalLightHelper(dirLight, 10);
-    this.scene.add(dirLightHelper);
+    // const dirLightHelper = new DirectionalLightHelper(dirLight, 10);
+    // this.scene.add(dirLightHelper);
+
+    const ambientLight = new AmbientLight(0x404040);
+    this.scene.add(ambientLight);
   }
 
   initHelpers() {
@@ -186,14 +219,25 @@ export class BuildingChartService {
     cancelAnimationFrame(this.timer);
   }
 
+  renderBloom() {
+    // const scene = this.scene;
+    // scene.traverse(this.darkenNonBloomed.bind(this));
+    this.floors.forEach(this.darkenNonBloomed.bind(this))
+    this.bloomComposer.render();
+    this.floors.forEach(this.restoreMaterial.bind(this))
+    // scene.traverse(this.restoreMaterial.bind(this));
+  }
+
   renderScene(time) {
     this.TWEEN.update(time);
     this.controls.update();
     this.renderRaycasterObj(this.raycaster, this.scene, this.camera, this.mousePos);
-    if (this.onEachFrame instanceof Function) {
-      this.onEachFrame();
+    if (this.beforeRender instanceof Function) {
+      this.beforeRender();
     }
-    this.renderer.render(this.scene, this.camera);
+    // this.renderer.render(this.scene, this.camera);
+    this.renderBloom();
+    this.finalComposer.render();
 
     // this.storeDeviceScreenCoord();
     this.timer = requestAnimationFrame(this.renderScene.bind(this));
@@ -384,8 +428,6 @@ export class BuildingChartService {
   //     });
   //   });
   // }
-
-
   storeDeviceScreenCoord(device: Mesh) {
     // const worldMatEl = device.matrixWorld.elements;
     // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
@@ -398,8 +440,6 @@ export class BuildingChartService {
       y: Math.round((.5 - vec.y / 2) * dom.height),
     };
   }
-
-
 
   private initRaycaster(renderer: WebGLRenderer) {
     this.raycaster = new Raycaster();
@@ -441,9 +481,70 @@ export class BuildingChartService {
     // console.log('mousePos', this.mousePos);
   }
 
+  private darkenNonBloomed(obj: any) {
+    if (obj.userData.isFloor && this.bloomLayer.test(obj.layers) === false) {
+      this.materials.set(obj.uuid, obj.material);
+      obj.material = this.darkMaterial;
+    }
+  }
+
+  private restoreMaterial(obj: any) {
+    if (this.materials.has(obj.uuid)) {
+      obj.material = this.materials.get(obj.uuid);
+      this.materials.delete(obj.uuid);
+    }
+  }
+
+  private initBloomLayer() {
+    this.bloomLayer = new Layers();
+    this.bloomLayer.set(SCENE.BLOOM_SCENE);
+  }
+
+  private initBloomPass() {
+    this.bloomPass = new UnrealBloomPass(
+      new Vector2(window.innerWidth, window.innerHeight),
+      1.5, 0.4, 0.85
+    );
+  }
+
+  private initFinalPass(bloomComposer: EffectComposer) {
+    const mat = new ShaderMaterial({
+      uniforms: {
+        baseTexture: { value: null },
+        bloomTexture: { value: bloomComposer.renderTarget2.texture }
+      },
+      vertexShader: vshader,
+      fragmentShader: fshader,
+      defines: {}
+    });
+    this.finalPass = new ShaderPass(mat, 'baseTexture');
+    this.finalPass.needsSwap = true;
+  }
+
+  private initBloomComposer() {
+    this.bloomComposer = new EffectComposer(this.renderer);
+    const composer = this.bloomComposer;
+    // composer.renderToScreen = false;
+    composer.addPass(this.renderPass);
+    composer.addPass(this.bloomPass);
+
+    this.initFinalPass(composer);
+  }
+
+  private initFinalComposer() {
+    this.finalComposer = new EffectComposer(this.renderer);
+    const composer = this.finalComposer;
+    composer.addPass(this.renderPass);
+    composer.addPass(this.finalPass);
+  }
+
   private initialize() {
-    this.renderer = new WebGLRenderer({ antialias: true });
     this.scene = new Scene();
+
+    this.darkMaterial = new MeshBasicMaterial({ color: 0x000000 });
+    this.materials = new Map();
+    this.initBloomLayer();
+    this.initBloomPass();
 
     this.floorKeys = [];
     this.floors = [];

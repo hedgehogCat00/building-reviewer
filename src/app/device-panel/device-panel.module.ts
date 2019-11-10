@@ -7,11 +7,7 @@ import { BuildingChartModule } from '../building-chart/building-chart.module';
 import { FormsModule } from '@angular/forms';
 import { 
   MatButtonModule, 
-  MatExpansionModule, 
-  // MatDialogModule, 
-  // MatFormFieldModule, 
-  // MatSelectModule, 
-  // MatInputModule 
+  MatExpansionModule
 } from '@angular/material';
 
 @NgModule({
@@ -23,10 +19,6 @@ import {
     BuildingChartModule,
     MatButtonModule,
     MatExpansionModule,
-    // MatDialogModule,
-    // MatInputModule,
-    // MatSelectModule,
-    // MatFormFieldModule,
     FormsModule
   ],
   exports: [DevicePanelComponent],

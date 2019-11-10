@@ -1,8 +1,17 @@
 <div #container class="building-chart-container">
-  <app-building-chart #chart (floorDiselected)="floorDiselected($event)" (floorSelected)="floorSelected($event)" (nothingSelected)="nothingSelected()"
-    (getFloorNames)="getFloorNames($event)"></app-building-chart>
+  <app-building-chart #chart 
+  (floorDiselected)="floorDiselected($event)"
+  (floorSelected)="floorSelected($event)"
+  (nothingSelected)="nothingSelected()" 
+  (getFloorNames)="getFloorNames($event)"
+  (modelOnReady)="modelOnReady($event)"
+  (objOnHovered)="onObjHovered($event)"
+  (objOnLeaved)="onObjLeaved($event)"
+  (beforeRender)="beforeRender($event)"
+  ></app-building-chart>
   <!-- device items -->
-  <div [@iconState]="getIconState(device)" *ngFor="let device of devices" class="chart-icon" [ngStyle]="getDeviceStyle(device)">
+  <div [@iconState]="getIconState(device)" *ngFor="let device of devices" class="chart-icon"
+    [ngStyle]="getDeviceStyle(device)">
     <div class="image-container">
       <img [src]="device.type.imgUrl" alt="image">
       <span class="label">{{device.name}}</span>
