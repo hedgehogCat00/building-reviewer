@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { BuildingChartComponent } from '../building-chart/building-chart.component';
-import { Mesh, MeshBasicMaterial, Group, Color, Object3D, BoxGeometry, Scene, DoubleSide } from 'three';
+import { Mesh, MeshBasicMaterial, Group, Color, Object3D, BoxGeometry, Scene, DoubleSide, MeshPhongMaterial } from 'three';
 import { FormControl } from '@angular/forms';
 import { state, trigger, style, transition, animate, animation } from '@angular/animations';
 import { DevicePanelService } from './device-panel.service';
@@ -13,6 +13,10 @@ interface Device {
   id: number;
   mesh: Mesh;
   floorIdx: number;
+
+  // When set to false,
+  // hide animation will display
+  alive?: boolean;
 }
 
 interface Floor {
@@ -23,6 +27,9 @@ interface Floor {
 interface DeviceType {
   type: string;
   imgUrl: string;
+  // type1: 蓝色尖角
+  // type2: 灰色圆形
+  UIType: 'type1' | 'type2';
 }
 
 @Component({
@@ -85,27 +92,33 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     this.deviceTypes = [
       {
         type: '空气检测',
-        imgUrl: this.dockCubImgUrl
+        imgUrl: this.dockCubImgUrl,
+        UIType: 'type1'
       },
       {
         type: '湿度传感器',
-        imgUrl: this.wetSensorImgUrl
+        imgUrl: this.wetSensorImgUrl,
+        UIType: 'type1'
       },
       {
         type: '温度传感器',
-        imgUrl: this.tempSensorImgUrl
+        imgUrl: this.tempSensorImgUrl,
+        UIType: 'type1'
       },
       {
         type: '二氧化碳传感器',
-        imgUrl: this.co2SensorImgUrl
+        imgUrl: this.co2SensorImgUrl,
+        UIType: 'type1'
       },
       {
         type: '红外传感器',
-        imgUrl: this.infraredSensorImgUrl
+        imgUrl: this.infraredSensorImgUrl,
+        UIType: 'type1'
       },
       {
         type: '排风阀',
-        imgUrl: this.fanImgUrl
+        imgUrl: this.fanImgUrl,
+        UIType: 'type2'
       }
     ];
   }
@@ -234,8 +247,6 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     this.chartComp.selectFloor(floorIdx);
   }
 
-  // devicesUpdated(devices: { [id: string]: Mesh }[]) { }
-
   getFloorNames(floorNames: string[]) {
     this.floors = floorNames.map(name => {
       return { name, devices: [] };
@@ -243,10 +254,15 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
   }
 
   removeDevice(floorIdx: number, id: number) {
-    this.chartComp.removeDevice(floorIdx, id);
-
     const devices = this.floors[floorIdx].devices;
-    this.floors[floorIdx].devices = devices.filter(d => d.id !== id);
+    const idx = devices.findIndex(d => d.id === id);
+    const device = devices[idx];
+    device.alive = false;
+
+    setTimeout(() => {
+      this.chartComp.removeDevice(floorIdx, id);
+      devices.splice(idx, 1);
+    }, 30);
   }
 
   raiseModal(floorIdx: number) {
@@ -288,22 +304,22 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
   }
 
   getIconState(device: Device): 'show' | 'hide' {
-    return device.floorIdx === this.onViewFloorIdx ? 'show' : 'hide';
+    return (device.floorIdx === this.onViewFloorIdx) && (device.alive !== false) ? 'show' : 'hide';
   }
 
 
   // As background of floor object
-  private addBackPanel(group: Group, floor: Mesh) {
-    const back = floor.clone();
-    back.material = new MeshBasicMaterial({ color: 0x191e24 });
-    back.userData.oriColor = new Color(0x191e24);
-    // A bit offset by floor
-    back.position.setZ(back.position.z - .001);
-    back.name = 'back-panel';
-    back.material.transparent = true;
-    back.material.opacity = 0;
-    group.add(back);
-  }
+  // private addBackPanel(group: Group, floor: Mesh) {
+  //   const back = floor.clone();
+  //   back.material = new MeshBasicMaterial({ color: 0x191e24 });
+  //   back.userData.oriColor = new Color(0x191e24);
+  //   // A bit offset by floor
+  //   back.position.setZ(back.position.z - .001);
+  //   back.name = 'back-panel';
+  //   back.material.transparent = true;
+  //   back.material.opacity = 0;
+  //   group.add(back);
+  // }
 
 
 }

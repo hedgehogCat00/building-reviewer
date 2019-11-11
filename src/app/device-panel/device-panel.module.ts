@@ -1,12 +1,12 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FlexLayoutModule } from '@angular/flex-layout';
 import { DevicePanelService } from './device-panel.service';
 import { DevicePanelComponent } from './device-panel.component';
 import { BuildingChartModule } from '../building-chart/building-chart.module';
-
 import { FormsModule } from '@angular/forms';
-import { 
-  MatButtonModule, 
+import {
+  MatButtonModule,
   MatExpansionModule
 } from '@angular/material';
 
@@ -19,7 +19,8 @@ import {
     BuildingChartModule,
     MatButtonModule,
     MatExpansionModule,
-    FormsModule
+    FormsModule,
+    FlexLayoutModule
   ],
   exports: [DevicePanelComponent],
   providers: [DevicePanelService]

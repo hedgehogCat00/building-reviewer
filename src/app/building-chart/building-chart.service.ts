@@ -158,7 +158,6 @@ export class BuildingChartService {
     };
     this.camera = new PerspectiveCamera(config.fov, window.innerWidth / window.innerHeight, config.near, config.far);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.addEventListener('changed', e => { });
     this.resetCam();
     // this.controls.target.set(0, 0, 0);
 
@@ -513,7 +512,6 @@ export class BuildingChartService {
 
   private initialize() {
     this.scene = new Scene();
-    
 
     this.floorKeys = [];
     this.floors = [];

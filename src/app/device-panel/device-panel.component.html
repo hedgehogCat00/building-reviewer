@@ -1,25 +1,20 @@
 <div #container class="building-chart-container">
-  <app-building-chart #chart 
-  (floorDiselected)="floorDiselected($event)"
-  (floorSelected)="floorSelected($event)"
-  (nothingSelected)="nothingSelected()" 
-  (getFloorNames)="getFloorNames($event)"
-  (modelOnReady)="modelOnReady($event)"
-  (objOnHovered)="onObjHovered($event)"
-  (objOnLeaved)="onObjLeaved($event)"
-  ></app-building-chart>
+  <app-building-chart #chart (floorDiselected)="floorDiselected($event)" (floorSelected)="floorSelected($event)"
+    (nothingSelected)="nothingSelected()" (getFloorNames)="getFloorNames($event)" (modelOnReady)="modelOnReady($event)"
+    (objOnHovered)="onObjHovered($event)" (objOnLeaved)="onObjLeaved($event)"></app-building-chart>
   <!-- device items -->
-  <div [@iconState]="getIconState(device)" *ngFor="let device of devices" class="chart-icon"
-    [ngStyle]="getDeviceStyle(device)">
-    <div class="image-container">
-      <img [src]="device.type.imgUrl" alt="image">
-      <span class="label">{{device.name}}</span>
-    </div>
-    <div class="tail"></div>
+  <div *ngFor="let device of devices" class="chart-icon" [ngStyle]="getDeviceStyle(device)">
+    <ng-container [ngSwitch]="device.type.UIType">
+      <ng-container *ngSwitchCase="'type1'">
+        <ng-container *ngTemplateOutlet="type1T;context:{device:device}"></ng-container>
+      </ng-container>
+      <ng-container *ngSwitchCase="'type2'">
+        <ng-container *ngTemplateOutlet="type2T;context:{device:device}"></ng-container>
+      </ng-container>
+    </ng-container>
   </div>
 
   <!-- left side floors panel -->
-
   <mat-accordion class="floors-container">
     <mat-expansion-panel *ngFor="let floor of floors;index as floorIdx">
       <mat-expansion-panel-header>
@@ -82,3 +77,25 @@
     </div>
   </div>
 </div>
+
+<!-- for UIType=type1 -->
+<ng-template #type1T let-device="device">
+  <div [@iconState]="getIconState(device)" class="icon-wrapper">
+    <div class="beam"></div>
+    <div class="background"></div>
+    <div class="image-container" fxLayout="column" fxLayoutGap="30px" fxLayoutAlign="center center">
+      <div class="label">{{device.name}}</div>
+      <img class="icon-img" [src]="device.type.imgUrl" alt="image">
+    </div>
+  </div>
+</ng-template>
+
+<!-- for UIType=type2 -->
+<ng-template #type2T let-device="device">
+  <div [@iconState]="getIconState(device)" class="image-container" fxLayout="column" fxLayoutGap="30px"
+    fxLayoutAlign="center center">
+    <div class="label">{{device.name}}</div>
+    <img class="icon-img" [src]="device.type.imgUrl" alt="image">
+  </div>
+  <!-- <div class="tail"></div> -->
+</ng-template>

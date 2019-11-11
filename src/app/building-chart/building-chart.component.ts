@@ -33,9 +33,10 @@ export class BuildingChartComponent implements OnInit {
 
   @ViewChild('glCanvas', { static: true }) glCanvas: ElementRef;
 
+  @Output() floorModelsReady: EventEmitter<Mesh[]>;
   @Output() devicesUpdated: EventEmitter<any[]>;
-  @Output() floorSelected: EventEmitter<number>;
-  @Output() floorDiselected: EventEmitter<number>;
+  @Output() floorSelected: EventEmitter<Mesh>;
+  @Output() floorDiselected: EventEmitter<Mesh>;
   @Output() nothingSelected: EventEmitter<void>;
   @Output() getFloorNames: EventEmitter<string[]>;
   @Output() modelOnReady: EventEmitter<Mesh[]>;
@@ -104,7 +105,6 @@ export class BuildingChartComponent implements OnInit {
             // child.receiveShadow = true;
             const name = child.name;
             if (this.floorKeys.includes(name)) {
-              // child.onBeforeRender = this.onFloorBeforeRender.bind(this, child);
               child.userData.isFloor = true;
               child.userData.floorIdx = this.floorKeys.findIndex((key) => key === name);
               this.floors.push(child);
@@ -138,12 +138,11 @@ export class BuildingChartComponent implements OnInit {
 
           group.add(floor);
           floor.parent = group;
-          // floorGroups.push(group);
 
           modelScene.remove(floor);
           modelScene.add(group);
-          // service.scene.add(group);
         });
+
         console.log('get model', model);
         service.scene.add((modelScene));
         service.play();
@@ -168,7 +167,7 @@ export class BuildingChartComponent implements OnInit {
     this.objOnLeaved.emit(obj);
   }
 
-  handleCanvasClicked(e: MouseEvent) {
+  handleCanvasClicked() {
     const service = this.compService;
     if (service.casteredObj) {
       if (service.casteredObj === service.selectedObj) {
@@ -177,18 +176,18 @@ export class BuildingChartComponent implements OnInit {
       if (service.selectedObj) {
         service.selectedObj.userData.selected = false;
         console.log(`floor ${service.selectedObj.name} is diselected`);
-        this.floorDiselected.emit(service.selectedObj.userData.floorIdx);
+        this.floorDiselected.emit(service.selectedObj);
       }
       service.selectedObj = service.casteredObj;
       service.selectedObj.userData.selected = true;
       console.log(`floor ${service.selectedObj.name} is selected`);
-      this.floorSelected.emit(service.selectedObj.userData.floorIdx);
+      this.floorSelected.emit(service.selectedObj);
       service.focusOnFloor(service.selectedObj);
     } else {
       if (service.selectedObj) {
         service.selectedObj.userData.selected = false;
         console.log(`floor ${service.selectedObj.name} is diselected`);
-        this.floorDiselected.emit(service.selectedObj.userData.floorIdx);
+        this.floorDiselected.emit(service.selectedObj);
         service.resetCam();
       }
       this.nothingSelected.emit();
@@ -206,17 +205,16 @@ export class BuildingChartComponent implements OnInit {
 
 
   selectFloor(floorIdx: number) {
-    this.floorSelected.emit(floorIdx);
-    this.compService.focusOnFloor(this.floors[floorIdx]);
+    const floor = this.floors[floorIdx];
+    this.floorSelected.emit(floor);
+    this.compService.focusOnFloor(floor);
   }
 
-  onFloorSelected(floorIdx: number) {
-    const floor = this.floors[floorIdx] as any;
+  onFloorSelected(floor: Mesh) {
     floor.userData.isSelected = true;
   }
 
-  onFloorDiselected(floorIdx: number) {
-    const floor = this.floors[floorIdx] as any;
+  onFloorDiselected(floor: Mesh) {
     const data = floor.userData;
     data.isSelected = false;
   }
