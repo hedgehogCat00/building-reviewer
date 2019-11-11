@@ -7,7 +7,6 @@
   (modelOnReady)="modelOnReady($event)"
   (objOnHovered)="onObjHovered($event)"
   (objOnLeaved)="onObjLeaved($event)"
-  (beforeRender)="beforeRender($event)"
   ></app-building-chart>
   <!-- device items -->
   <div [@iconState]="getIconState(device)" *ngFor="let device of devices" class="chart-icon"

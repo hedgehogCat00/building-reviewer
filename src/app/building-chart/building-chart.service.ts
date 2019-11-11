@@ -16,7 +16,8 @@ import {
   Raycaster,
   Vector2, Mesh, BoxGeometry, MeshBasicMaterial, Vector3, AxesHelper, Group, MeshLambertMaterial, PCFSoftShadowMap, PlaneGeometry,
   ReinhardToneMapping,
-  ShaderMaterial
+  ShaderMaterial,
+  PointLight
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader';
@@ -162,19 +163,9 @@ export class BuildingChartService {
     // this.controls.target.set(0, 0, 0);
 
     this.initRaycaster(this.renderer);
-
-    this.renderPass = new RenderPass(this.scene, this.camera);
-    this.initBloomComposer();
-    this.initFinalComposer();
+    
     this.interaction = new Interaction(this.renderer, this.scene, this.camera);
-
-    // const cube = new Mesh(
-    //   new BoxGeometry(10, 10, 10),
-    //   new MeshBasicMaterial({ color: 0xffffff }),
-    // ) as any;
-    // this.scene.add(cube);
-    // cube.cursor = 'pointer';
-    // cube.on('click', function(ev) {console.log('cube clicked')});
+    this.preparePostProcesses();
   }
 
   initLights() {
@@ -196,19 +187,22 @@ export class BuildingChartService {
     // const dirLightHelper = new DirectionalLightHelper(dirLight, 10);
     // this.scene.add(dirLightHelper);
 
-    const ambientLight = new AmbientLight(0x404040);
-    this.scene.add(ambientLight);
+    // const ambientLight = new AmbientLight(0x404040);
+    // this.scene.add(ambientLight);
+    const pointLight = new PointLight(0xffffff, 1);
+    this.camera.add(pointLight);
   }
 
   initHelpers() {
-    this.gridHelper = new GridHelper(2000, 200, 0xffffff, 0xaaaaff);
-    const mat = this.gridHelper.material as Material;
-    mat.opacity = .2;
-    mat.transparent = true;
-    this.scene.add(this.gridHelper);
+    // this.gridHelper = new GridHelper(2000, 200, 0xffffff, 0xaaaaff);
+    // const mat = this.gridHelper.material as Material;
+    // mat.opacity = .2;
+    // mat.transparent = true;
+    // this.gridHelper.layers.disable(SCENE.BLOOM_SCENE);
+    // this.scene.add(this.gridHelper);
 
-    const axesHelper = new AxesHelper(100);
-    this.scene.add(axesHelper);
+    // const axesHelper = new AxesHelper(100);
+    // this.scene.add(axesHelper);
   }
 
   play() {
@@ -259,13 +253,6 @@ export class BuildingChartService {
           this.objCasteredEvt.emit(floorObj);
         }
       }
-
-      // const currObj = intersects[0].object;
-      // // console.log('intersect', intersects);
-      // if ((currObj !== this.casteredObj) && (currObj.type === 'Mesh')) {
-      //   this.casteredObj = currObj as Mesh;
-      //   this.objCasteredEvt.emit(currObj);
-      // }
     } else {
       if (this.casteredObj !== null) {
         this.objLeaveEvt.emit(this.casteredObj);
@@ -411,23 +398,6 @@ export class BuildingChartService {
     delete this.devices[idx][id];
   }
 
-
-  // storeDeviceScreenCoord() {
-  //   this.devices.forEach(devicesOneFloor => {
-  //     Object.values(devicesOneFloor).forEach((device: Mesh) => {
-  //       // const worldMatEl = device.matrixWorld.elements;
-  //       // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
-  //       const vec = device.getWorldPosition(device.position.clone());
-  //       vec.project(this.camera);
-  //       const dom = this.renderer.domElement;
-  //       // Restore result
-  //       device.userData.screenCoord = {
-  //         x: Math.round((.5 + vec.x / 2) * dom.width),
-  //         y: Math.round((.5 - vec.y / 2) * dom.height),
-  //       };
-  //     });
-  //   });
-  // }
   storeDeviceScreenCoord(device: Mesh) {
     // const worldMatEl = device.matrixWorld.elements;
     // const vec = new Vector3(worldMatEl[12], worldMatEl[13], worldMatEl[14]);
@@ -481,8 +451,54 @@ export class BuildingChartService {
     // console.log('mousePos', this.mousePos);
   }
 
+  private preparePostProcesses() {
+    // initialize dark material
+    this.darkMaterial = new MeshBasicMaterial({ color: 0x000000 });
+    this.darkMaterial.transparent = true;
+    this.materials = new Map();
+
+    // initialize bloom layer
+    this.bloomLayer = new Layers();
+    this.bloomLayer.set(SCENE.BLOOM_SCENE);
+
+    // initialize bloom pass
+    this.bloomPass = new UnrealBloomPass(
+      new Vector2(window.innerWidth, window.innerHeight),
+      1.5, 0.4, 0.85
+    );
+
+    // initialize render pass
+    this.renderPass = new RenderPass(this.scene, this.camera);
+
+    // initialize bloom composer
+    this.bloomComposer = new EffectComposer(this.renderer);
+    let composer = this.bloomComposer;
+    (composer as any).renderToScreen = false;
+    composer.addPass(this.renderPass);
+    composer.addPass(this.bloomPass);
+
+    // initialize final pass
+    const shaderMat = new ShaderMaterial({
+      uniforms: {
+        baseTexture: { value: null },
+        bloomTexture: { value: this.bloomComposer.renderTarget2.texture }
+      },
+      vertexShader: vshader,
+      fragmentShader: fshader,
+      defines: {}
+    });
+    this.finalPass = new ShaderPass(shaderMat, 'baseTexture');
+    this.finalPass.needsSwap = true;
+
+    // initialize final composer
+    this.finalComposer = new EffectComposer(this.renderer);
+    composer = this.finalComposer;
+    composer.addPass(this.renderPass);
+    composer.addPass(this.finalPass);
+  }
+
   private darkenNonBloomed(obj: any) {
-    if (obj.userData.isFloor && this.bloomLayer.test(obj.layers) === false) {
+    if (this.bloomLayer.test(obj.layers) === false) {
       this.materials.set(obj.uuid, obj.material);
       obj.material = this.darkMaterial;
     }
@@ -495,56 +511,9 @@ export class BuildingChartService {
     }
   }
 
-  private initBloomLayer() {
-    this.bloomLayer = new Layers();
-    this.bloomLayer.set(SCENE.BLOOM_SCENE);
-  }
-
-  private initBloomPass() {
-    this.bloomPass = new UnrealBloomPass(
-      new Vector2(window.innerWidth, window.innerHeight),
-      1.5, 0.4, 0.85
-    );
-  }
-
-  private initFinalPass(bloomComposer: EffectComposer) {
-    const mat = new ShaderMaterial({
-      uniforms: {
-        baseTexture: { value: null },
-        bloomTexture: { value: bloomComposer.renderTarget2.texture }
-      },
-      vertexShader: vshader,
-      fragmentShader: fshader,
-      defines: {}
-    });
-    this.finalPass = new ShaderPass(mat, 'baseTexture');
-    this.finalPass.needsSwap = true;
-  }
-
-  private initBloomComposer() {
-    this.bloomComposer = new EffectComposer(this.renderer);
-    const composer = this.bloomComposer;
-    // composer.renderToScreen = false;
-    composer.addPass(this.renderPass);
-    composer.addPass(this.bloomPass);
-
-    this.initFinalPass(composer);
-  }
-
-  private initFinalComposer() {
-    this.finalComposer = new EffectComposer(this.renderer);
-    const composer = this.finalComposer;
-    composer.addPass(this.renderPass);
-    composer.addPass(this.finalPass);
-  }
-
   private initialize() {
     this.scene = new Scene();
-
-    this.darkMaterial = new MeshBasicMaterial({ color: 0x000000 });
-    this.materials = new Map();
-    this.initBloomLayer();
-    this.initBloomPass();
+    
 
     this.floorKeys = [];
     this.floors = [];

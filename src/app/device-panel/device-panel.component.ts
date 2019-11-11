@@ -1,6 +1,6 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { BuildingChartComponent } from '../building-chart/building-chart.component';
-import { Mesh, MeshBasicMaterial, Group, Color, Object3D, BoxGeometry, Scene } from 'three';
+import { Mesh, MeshBasicMaterial, Group, Color, Object3D, BoxGeometry, Scene, DoubleSide } from 'three';
 import { FormControl } from '@angular/forms';
 import { state, trigger, style, transition, animate, animation } from '@angular/animations';
 import { DevicePanelService } from './device-panel.service';
@@ -112,9 +112,7 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
 
   ngOnInit() { }
 
-  ngAfterViewInit() {
-    
-  }
+  ngAfterViewInit() {}
 
   modelOnReady(floors: Mesh[]) {
     const renderer = this.chartComp.renderer;
@@ -123,34 +121,28 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
 
     floors.forEach(floor => {
       (floor as any).cursor = 'pointer';
-      (floor as any).on('mouseover', e => {
-        console.log('mouse over');
-      });
 
       floor.castShadow = true;
       floor.receiveShadow = true;
       floor.layers.enable(SCENE.BLOOM_SCENE);
-      // child.material.emissive = new Color(1, 1, 1);
-      // child.material.emissiveIntensity = 1;
-      // child.material.emissiveMap = child.material.map;
 
       // Create unique material for each floor obj
-      floor.material = (floor.material as MeshBasicMaterial).clone();
       const floorMat = floor.material as MeshBasicMaterial;
-      // floorMat.emissive = new Color(0xffffff);
-      // floorMat.emissiveIntensity = 0.2;
-      floorMat.color = new Color(0xa0dadd);
-      floor.userData.oriColor = floorMat.color.clone();
+      floorMat.side = DoubleSide;
+      floorMat.color.setHex(0xa5cacbc);
       floorMat.transparent = true;
+      floor.userData.oriColor = floorMat.color.clone();
 
-      this.addBackPanel(floor.parent as Group, floor);
+      floor.material = floorMat.clone();
 
-      const boxGeo = new BoxGeometry(2, 2, 2);
-      const mat = new MeshBasicMaterial({color: 0xa0dadd});
-      const box = new Mesh(boxGeo, mat);
-      box.layers.enable(SCENE.BLOOM_SCENE);
-      (box.material as any).depthWrite = false;
-      floor.parent.add(box);
+      // this.addBackPanel(floor.parent as Group, floor);
+
+      // const boxGeo = new BoxGeometry(2, 2, 2);
+      // const mat = new MeshBasicMaterial({color: 0xa0dadd});
+      // const box = new Mesh(boxGeo, mat);
+      // box.layers.enable(SCENE.BLOOM_SCENE);
+      // (box.material as any).depthWrite = false;
+      // floor.parent.add(box);
     });
   }
 
@@ -160,7 +152,6 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     if (data.isFloor && !data.isSelected) {
       const mat = (obj as Mesh).material as MeshBasicMaterial;
       mat.color = new Color(.5, .5, 1);
-      obj.layers.set(SCENE.BLOOM_SCENE);
     }
   }
 
@@ -168,76 +159,75 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     // console.log('leaved', obj);
     const data = obj.userData;
     if (data.isFloor) {
-      obj.layers.set(SCENE.ENTIRE_SCENE);
       const mat = (obj as Mesh).material as MeshBasicMaterial;
       mat.color = data.oriColor.clone();
     }
   }
 
   floorDiselected(floorIdx: number) {
+    const floorMesh = this.chartComp.floors[floorIdx];
+    floorMesh.layers.enable(SCENE.BLOOM_SCENE);
     this.onViewFloorIdx = null;
 
-    const TWEEN = this.chartComp.TWEEN;
-    const floorMesh = this.chartComp.floors[floorIdx];
-    // Unfade floor
-    const fmat = floorMesh.material as MeshBasicMaterial;
-    // Set opacity to 1
-    const fopacity = fmat.opacity;
-    const fvalObj = { val: fopacity };
-    new TWEEN.Tween(fvalObj)
-      .to({ val: 1 })
-      .easing(TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { fmat.opacity = fvalObj.val; })
-      .start();
+    // const TWEEN = this.chartComp.TWEEN;
+    // const floorMesh = this.chartComp.floors[floorIdx];
+    // // Unfade floor
+    // const fmat = floorMesh.material as MeshBasicMaterial;
+    // // Set opacity to 1
+    // const fopacity = fmat.opacity;
+    // const fvalObj = { val: fopacity };
+    // new TWEEN.Tween(fvalObj)
+    //   .to({ val: 1 })
+    //   .easing(TWEEN.Easing.Quadratic.Out)
+    //   .onUpdate(() => { fmat.opacity = fvalObj.val; })
+    //   .start();
 
-    // Hide backpanel
-    const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
-    const mat = backPanel.material as MeshBasicMaterial;
-    const opacity = mat.opacity;
-    const valObj = { val: opacity };
-    // Set opacity to 0
-    new TWEEN.Tween(valObj)
-      .to({ val: 0 })
-      .easing(TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { mat.opacity = valObj.val; })
-      .start();
+    // // Hide backpanel
+    // const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
+    // const mat = backPanel.material as MeshBasicMaterial;
+    // const opacity = mat.opacity;
+    // const valObj = { val: opacity };
+    // // Set opacity to 0
+    // new TWEEN.Tween(valObj)
+    //   .to({ val: 0 })
+    //   .easing(TWEEN.Easing.Quadratic.Out)
+    //   .onUpdate(() => { mat.opacity = valObj.val; })
+    //   .start();
   }
 
   floorSelected(floorIdx: number) {
+    const floorMesh = this.chartComp.floors[floorIdx];
+    floorMesh.layers.disable(SCENE.BLOOM_SCENE);
     this.onViewFloorIdx = floorIdx;
 
-    const TWEEN = this.chartComp.TWEEN;
-    const floorMesh = this.chartComp.floors[floorIdx];
-    // Fade floor
-    const fmat = floorMesh.material as MeshBasicMaterial;
-    // Set opacity to 0.6
-    const fopacity = fmat.opacity;
-    const fvalObj = { val: fopacity };
-    new TWEEN.Tween(fvalObj)
-      .to({ val: 0.6 })
-      .easing(TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { fmat.opacity = fvalObj.val; })
-      .start();
+    // const TWEEN = this.chartComp.TWEEN;
+    // const floorMesh = this.chartComp.floors[floorIdx];
+    // // Fade floor
+    // const fmat = floorMesh.material as MeshBasicMaterial;
+    // // Set opacity to 0.6
+    // const fopacity = fmat.opacity;
+    // const fvalObj = { val: fopacity };
+    // new TWEEN.Tween(fvalObj)
+    //   .to({ val: 0.6 })
+    //   .easing(TWEEN.Easing.Quadratic.Out)
+    //   .onUpdate(() => { fmat.opacity = fvalObj.val; })
+    //   .start();
 
-    // Show backpanel
-    const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
-    const mat = backPanel.material as MeshBasicMaterial;
-    // Set opacity to 0.8
-    const opacity = mat.opacity;
-    const valObj = { val: opacity };
-    new TWEEN.Tween(valObj)
-      .to({ val: 0.8 })
-      .easing(TWEEN.Easing.Quadratic.Out)
-      .onUpdate(() => { mat.opacity = valObj.val; })
-      .start();
+    // // Show backpanel
+    // const backPanel = floorMesh.parent.getObjectByName('back-panel') as Mesh;
+    // const mat = backPanel.material as MeshBasicMaterial;
+    // // Set opacity to 0.8
+    // const opacity = mat.opacity;
+    // const valObj = { val: opacity };
+    // new TWEEN.Tween(valObj)
+    //   .to({ val: 0.8 })
+    //   .easing(TWEEN.Easing.Quadratic.Out)
+    //   .onUpdate(() => { mat.opacity = valObj.val; })
+    //   .start();
   }
 
   nothingSelected() {
     this.onViewFloorIdx = null;
-  }
-
-  beforeRender() {
-
   }
 
   selectFloor(floorIdx: number) {
