@@ -51,21 +51,80 @@
         flex-direction: column
         align-items: center
         font-size: 12px
+
 .chart-icon
     position: absolute
     text-align: center
     // transition: top .3s ease-out, left .3s ease-out
     transform: translate(-50%,-100%)
+
     .icon-wrapper
         position: relative
+        transform: translateY(-15px)
         .beam
             position: absolute
-            
+            left: 50%
+            width: 80px
+            height: 100%
+            transform: translateX(-50%)
+            z-index: -1
+        .bottom
+            position: absolute
+            left: 50%
+            transform: translateX(-50%)
+            z-index: -1
+
+    // 蓝色三角类型
+    .icon-wrapper.type-1
+        .beam
+            background-image: linear-gradient(transparent, #465f71)
+        .bottom
+            width: 0
+            height: 0
+            bottom: 0
+            transform: translate(-50%, 75%) scaleY(0.5)
+            border: 40px solid #5b8696
+            border-left-color: transparent
+            border-bottom-color: transparent
+            border-right-color: transparent
+            z-index: -1
+
+    // 白色圆圈类型
+    .icon-wrapper.type-2
+        .beam
+            background-image: linear-gradient(transparent, #929292)
+        .bottom
+            width: 80px
+            height: 25px
+            bottom: 0
+            background-color: #cecece
+            transform: translate(-50%, 55%)
+            border-radius: 50%
+            border: none
+            z-index: -1
+
     .image-container
         display: flex
         flex-direction: column
         align-items: center
         color: #4fabb9
+
+        .label
+            font-size: 20px
+            color: white
+            font-weight: bold
+        .image-wrapper
+            animation: floating 2s ease-in-out infinite
+            @keyframes floating
+                0%
+                    transform: translateY(0)
+                50%
+                    transform: translateY(-10%)
+                100%
+                    transform: translateY(0)
+        .icon-img
+            width: 40px
+
     // .tail
     //     height: 80px
     //     margin-top: 10px

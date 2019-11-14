@@ -119,7 +119,7 @@ export class BuildingChartService {
   }
 
   initRenderer(canvas: HTMLCanvasElement) {
-    this.renderer = new WebGLRenderer({ antialias: true, canvas: canvas });
+    this.renderer = new WebGLRenderer({ antialias: true, canvas });
     const renderer = this.renderer;
 
     const wWidth = window.innerWidth;
@@ -148,8 +148,9 @@ export class BuildingChartService {
   }
 
   initScene() {
-    this.scene.background = new Color(0x191e24);
-    this.scene.fog = new Fog(0x191e24, 40, 1000);
+    this.scene = new Scene();
+    this.scene.background = new Color('black');
+    this.scene.fog = new Fog(0x191e24, 40, 500);
   }
 
   initCamera(canvas: HTMLCanvasElement) {
@@ -162,7 +163,7 @@ export class BuildingChartService {
     // this.controls.target.set(0, 0, 0);
 
     this.initRaycaster(this.renderer);
-    
+
     this.interaction = new Interaction(this.renderer, this.scene, this.camera);
     this.preparePostProcesses();
   }
@@ -186,22 +187,23 @@ export class BuildingChartService {
     // const dirLightHelper = new DirectionalLightHelper(dirLight, 10);
     // this.scene.add(dirLightHelper);
 
-    // const ambientLight = new AmbientLight(0x404040);
-    // this.scene.add(ambientLight);
-    const pointLight = new PointLight(0xffffff, 1);
-    this.camera.add(pointLight);
+    const ambientLight = new AmbientLight(0x404040);
+    this.scene.add(ambientLight);
+    // const pointLight = new PointLight(0xffffff, 1);
+    // this.camera.add(pointLight);
   }
 
   initHelpers() {
-    // this.gridHelper = new GridHelper(2000, 200, 0xffffff, 0xaaaaff);
-    // const mat = this.gridHelper.material as Material;
-    // mat.opacity = .2;
-    // mat.transparent = true;
+    this.gridHelper = new GridHelper(2000, 200, 0xffffff, 0xaaaaff);
     // this.gridHelper.layers.disable(SCENE.BLOOM_SCENE);
-    // this.scene.add(this.gridHelper);
+    const mat = this.gridHelper.material as Material;
+    mat.opacity = .2;
+    mat.transparent = true;
+    this.scene.add(this.gridHelper);
 
-    // const axesHelper = new AxesHelper(100);
-    // this.scene.add(axesHelper);
+    const axesHelper = new AxesHelper(100);
+    // axesHelper.layers.disable(SCENE.BLOOM_SCENE);
+    this.scene.add(axesHelper);
   }
 
   play() {
@@ -215,9 +217,9 @@ export class BuildingChartService {
   renderBloom() {
     // const scene = this.scene;
     // scene.traverse(this.darkenNonBloomed.bind(this));
-    this.floors.forEach(this.darkenNonBloomed.bind(this))
+    this.floors.forEach(this.darkenNonBloomed.bind(this));
     this.bloomComposer.render();
-    this.floors.forEach(this.restoreMaterial.bind(this))
+    this.floors.forEach(this.restoreMaterial.bind(this));
     // scene.traverse(this.restoreMaterial.bind(this));
   }
 
@@ -338,7 +340,6 @@ export class BuildingChartService {
   }
 
   /**
-   *
    * @param floorIdx
    * @param u range from 0-1
    * @param v range from 0-1
@@ -452,7 +453,7 @@ export class BuildingChartService {
 
   private preparePostProcesses() {
     // initialize dark material
-    this.darkMaterial = new MeshBasicMaterial({ color: 0x000000 });
+    this.darkMaterial = new MeshBasicMaterial({ color: 0x040404 });
     this.darkMaterial.transparent = true;
     this.materials = new Map();
 
@@ -511,7 +512,6 @@ export class BuildingChartService {
   }
 
   private initialize() {
-    this.scene = new Scene();
 
     this.floorKeys = [];
     this.floors = [];

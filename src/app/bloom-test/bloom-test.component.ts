@@ -1,6 +1,18 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { WebGLRenderer, PerspectiveCamera, ReinhardToneMapping, Scene, PointLight, Vector2, Mesh, MeshBasicMaterial, DoubleSide, Layers, ShaderMaterial } from 'three';
+import {
+  WebGLRenderer,
+  PerspectiveCamera,
+  ReinhardToneMapping,
+  Scene,
+  PointLight,
+  Vector2,
+  Mesh,
+  MeshBasicMaterial,
+  DoubleSide,
+  Layers,
+  ShaderMaterial
+} from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { ColladaLoader, Collada } from 'three/examples/jsm/loaders/ColladaLoader';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
@@ -93,7 +105,7 @@ export class BloomTestComponent implements OnInit, AfterViewInit {
     this.bloomLayer = new Layers();
     this.bloomLayer.set(SCENET.BLOOM_SCENE);
 
-    this.darkMat = new MeshBasicMaterial({color: 0x00000000});
+    this.darkMat = new MeshBasicMaterial({ color: 0x00000000 });
     this.darkMat.transparent = true;
     this.materials = new Map();
 
@@ -133,8 +145,8 @@ export class BloomTestComponent implements OnInit, AfterViewInit {
 
     const shaderMat = new ShaderMaterial({
       uniforms: {
-        baseTexture: { value: null},
-        bloomTexture:{value:this.bloomComposer.renderTarget2.texture}
+        baseTexture: { value: null },
+        bloomTexture: { value: this.bloomComposer.renderTarget2.texture }
       },
       vertexShader: this.vshader,
       fragmentShader: this.fshader,
@@ -169,7 +181,7 @@ export class BloomTestComponent implements OnInit, AfterViewInit {
   onModelLoaded(model: Collada) {
     const scene = model.scene;
     scene.traverse((obj: any) => {
-      if(!obj.isMesh) {
+      if (!obj.isMesh) {
         return;
       }
       const fMat = obj.material as MeshBasicMaterial;
@@ -187,9 +199,10 @@ export class BloomTestComponent implements OnInit, AfterViewInit {
       //   // obj.material.color.setHex(0xa5cacbc);
       //   obj.layers.disable(SCENET.BLOOM_SCENE);
       // });
+      obj.layers.enable(SCENET.BLOOM_SCENE);
       obj.on('click', e => {
         obj.layers.toggle(SCENET.BLOOM_SCENE);
-      })
+      });
     });
     this.scene.add(scene);
     this.animate();
@@ -206,14 +219,14 @@ export class BloomTestComponent implements OnInit, AfterViewInit {
 
   renderBloom() {
     this.meshes.forEach(mesh => {
-      if(this.bloomLayer.test(mesh.layers) === false) {
+      if (this.bloomLayer.test(mesh.layers) === false) {
         this.materials.set(mesh.uuid, mesh.material);
         mesh.material = this.darkMat;
       }
     });
     this.bloomComposer.render();
     this.meshes.forEach(mesh => {
-      if(this.materials.has(mesh.uuid)) {
+      if (this.materials.has(mesh.uuid)) {
         mesh.material = this.materials.get(mesh.uuid);
         this.materials.delete(mesh.uuid);
       }

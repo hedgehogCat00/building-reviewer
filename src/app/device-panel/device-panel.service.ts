@@ -12,10 +12,9 @@ export class DevicePanelService {
   genGUI(renderer: WebGLRenderer, bloomPass: UnrealBloomPass) {
     const params = {
       exposure: 1,
-      bloomStrength: 5,
+      bloomStrength: 3.7,
       bloomThreshold: 0,
-      bloomRadius: 0,
-      scene: "Scene with Glow"
+      bloomRadius: 0.14
     };
     // provide some initialize data
     renderer.toneMappingExposure = Math.pow(params.exposure, 4);
@@ -37,6 +36,8 @@ export class DevicePanelService {
     folder.add(params, 'bloomRadius', 0.0, 1.0).step(0.01).onChange(val => {
       bloomPass.radius = Number(val);
     });
+    
+    return params;
   }
 
   private initialize() {

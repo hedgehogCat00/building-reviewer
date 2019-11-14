@@ -1,7 +1,7 @@
 <div #container class="building-chart-container">
   <app-building-chart #chart (floorDiselected)="floorDiselected($event)" (floorSelected)="floorSelected($event)"
-    (nothingSelected)="nothingSelected()" (getFloorNames)="getFloorNames($event)" (modelOnReady)="modelOnReady($event)"
-    (objOnHovered)="onObjHovered($event)" (objOnLeaved)="onObjLeaved($event)"></app-building-chart>
+    (nothingSelected)="nothingSelected()" (getFloorNames)="getFloorNames($event)" (modelOnReady)="modelOnReady($event)">
+  </app-building-chart>
   <!-- device items -->
   <div *ngFor="let device of devices" class="chart-icon" [ngStyle]="getDeviceStyle(device)">
     <ng-container [ngSwitch]="device.type.UIType">
@@ -10,6 +10,9 @@
       </ng-container>
       <ng-container *ngSwitchCase="'type2'">
         <ng-container *ngTemplateOutlet="type2T;context:{device:device}"></ng-container>
+      </ng-container>
+      <ng-container *ngSwitchCase="'type3'">
+        <ng-container *ngTemplateOutlet="type3T;context:{device:device}"></ng-container>
       </ng-container>
     </ng-container>
   </div>
@@ -78,20 +81,36 @@
   </div>
 </div>
 
-<!-- for UIType=type1 -->
+<!-- for UIType=type1 蓝色尖角-->
 <ng-template #type1T let-device="device">
-  <div [@iconState]="getIconState(device)" class="icon-wrapper">
+  <div [@iconState]="getIconState(device)" class="icon-wrapper type-1">
     <div class="beam"></div>
-    <div class="background"></div>
-    <div class="image-container" fxLayout="column" fxLayoutGap="30px" fxLayoutAlign="center center">
+    <div class="bottom"></div>
+    <div class="image-container" fxLayout="column" fxLayoutGap="40px" fxLayoutAlign="center center">
       <div class="label">{{device.name}}</div>
-      <img class="icon-img" [src]="device.type.imgUrl" alt="image">
+      <div class="image-wrapper">
+        <img class="icon-img" [src]="device.type.imgUrl" alt="image">
+      </div>
     </div>
   </div>
 </ng-template>
 
-<!-- for UIType=type2 -->
+<!-- for UIType=type2 圆形底-->
 <ng-template #type2T let-device="device">
+  <div [@iconState]="getIconState(device)" class="icon-wrapper type-2">
+    <div class="beam"></div>
+    <div class="bottom"></div>
+    <div class="image-container" fxLayout="column" fxLayoutGap="40px" fxLayoutAlign="center center">
+      <div class="label">{{device.name}}</div>
+      <div class="image-wrapper">
+        <img class="icon-img" [src]="device.type.imgUrl" alt="image">
+      </div>
+    </div>
+  </div>
+</ng-template>
+
+<!-- for UIType=type3 点点 -->
+<ng-template #type3T let-device="device">
   <div [@iconState]="getIconState(device)" class="image-container" fxLayout="column" fxLayoutGap="30px"
     fxLayoutAlign="center center">
     <div class="label">{{device.name}}</div>

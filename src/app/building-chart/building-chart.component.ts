@@ -88,8 +88,8 @@ export class BuildingChartComponent implements OnInit {
     const service = this.compService;
     const el = this.glCanvas.nativeElement;
     service.initRenderer(el);
-    service.initCamera(el);
     service.initScene();
+    service.initCamera(el);
     service.initLights();
     service.initHelpers();
 

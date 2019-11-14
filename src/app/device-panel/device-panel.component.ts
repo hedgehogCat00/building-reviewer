@@ -29,7 +29,8 @@ interface DeviceType {
   imgUrl: string;
   // type1: 蓝色尖角
   // type2: 灰色圆形
-  UIType: 'type1' | 'type2';
+  // type3: 点点
+  UIType: 'type1' | 'type2' | 'type3';
 }
 
 @Component({
@@ -125,7 +126,7 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
 
   ngOnInit() { }
 
-  ngAfterViewInit() {}
+  ngAfterViewInit() { }
 
   modelOnReady(floors: Mesh[]) {
     const renderer = this.chartComp.renderer;
@@ -148,6 +149,14 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
 
       floor.material = floorMat.clone();
 
+      (floor as any).on('mouseover', e => {
+        this.onFloorHovered(floor);
+      });
+
+      (floor as any).on('mouseout', e => {
+        this.onFloorLeaved(floor);
+      });
+
       // this.addBackPanel(floor.parent as Group, floor);
 
       // const boxGeo = new BoxGeometry(2, 2, 2);
@@ -159,26 +168,35 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     });
   }
 
-  onObjHovered(obj: Object3D) {
+  onFloorHovered(floorMesh: Mesh) {
     // console.log('castered', obj);
-    const data = obj.userData;
-    if (data.isFloor && !data.isSelected) {
-      const mat = (obj as Mesh).material as MeshBasicMaterial;
-      mat.color = new Color(.5, .5, 1);
+    const data = floorMesh.userData;
+    if (!data.isSelected) {
+      const mat = floorMesh.material as MeshBasicMaterial;
+      const TWEEN = this.chartComp.TWEEN;
+      const color = mat.color;
+      new TWEEN.Tween(color)
+        .to({ r: .5, g: .5, b: 1 }, 300)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .start();
+      // mat.color = new Color(.5, .5, 1);
     }
   }
 
-  onObjLeaved(obj: Object3D) {
+  onFloorLeaved(floorMesh: Mesh) {
     // console.log('leaved', obj);
-    const data = obj.userData;
-    if (data.isFloor) {
-      const mat = (obj as Mesh).material as MeshBasicMaterial;
-      mat.color = data.oriColor.clone();
-    }
+    const data = floorMesh.userData;
+    const mat = floorMesh.material as MeshBasicMaterial;
+    const oriColor = data.oriColor;
+    const targetColor = { r: oriColor.r, g: oriColor.g, b: oriColor.b };
+    const TWEEN = this.chartComp.TWEEN;
+    new TWEEN.Tween(mat.color)
+      .to(targetColor, 300)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
   }
 
-  floorDiselected(floorIdx: number) {
-    const floorMesh = this.chartComp.floors[floorIdx];
+  floorDiselected(floorMesh: Mesh) {
     floorMesh.layers.enable(SCENE.BLOOM_SCENE);
     this.onViewFloorIdx = null;
 
@@ -208,10 +226,9 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
     //   .start();
   }
 
-  floorSelected(floorIdx: number) {
-    const floorMesh = this.chartComp.floors[floorIdx];
+  floorSelected(floorMesh: Mesh) {
     floorMesh.layers.disable(SCENE.BLOOM_SCENE);
-    this.onViewFloorIdx = floorIdx;
+    this.onViewFloorIdx = floorMesh.userData.floorIdx;
 
     // const TWEEN = this.chartComp.TWEEN;
     // const floorMesh = this.chartComp.floors[floorIdx];
@@ -306,20 +323,5 @@ export class DevicePanelComponent implements OnInit, AfterViewInit {
   getIconState(device: Device): 'show' | 'hide' {
     return (device.floorIdx === this.onViewFloorIdx) && (device.alive !== false) ? 'show' : 'hide';
   }
-
-
-  // As background of floor object
-  // private addBackPanel(group: Group, floor: Mesh) {
-  //   const back = floor.clone();
-  //   back.material = new MeshBasicMaterial({ color: 0x191e24 });
-  //   back.userData.oriColor = new Color(0x191e24);
-  //   // A bit offset by floor
-  //   back.position.setZ(back.position.z - .001);
-  //   back.name = 'back-panel';
-  //   back.material.transparent = true;
-  //   back.material.opacity = 0;
-  //   group.add(back);
-  // }
-
 
 }
